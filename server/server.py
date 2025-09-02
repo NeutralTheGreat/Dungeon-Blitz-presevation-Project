@@ -947,8 +947,8 @@ if __name__ == "__main__":
     print("For Flash Projector running on : http://localhost/p/cbv/DungeonBlitz.swf?fv=cbq&gv=cbv")
 
 
-    #threading.Thread(target=run_admin_panel, args=(lambda: all_sessions, 5000)).start()
-    #print("Debug Panel running on http://127.0.0.1:5000/")
+    threading.Thread(target=run_admin_panel, args=(lambda: all_sessions, 5000)).start()
+    print("Debug Panel running on http://127.0.0.1:5000/")
     try:
         while True:
             time.sleep(1)
