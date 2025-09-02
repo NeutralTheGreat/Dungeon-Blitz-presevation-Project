@@ -21,7 +21,6 @@
 
      * Open `http://localhost/index.html` in your browser
   
-     * Open `http://localhost:5050` in your browser for admin panel (Optional)
 
 ---
 
