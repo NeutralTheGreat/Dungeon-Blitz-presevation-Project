@@ -1,0 +1,38 @@
+name: Build self-contained binary (Mac)
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: macos-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Python Virtual Environment
+        run: |
+          cd server
+          python3 -m venv venv
+          source venv/bin/activate
+          python3 -m pip install --upgrade pip
+          python3 -m pip install -r requirements.txt
+          python3 -m pip install pyinstaller
+
+      - name: Compile with PyInstaller
+        run: |
+          cd server
+          source venv/bin/activate
+          pyinstaller pyinstaller.spec
+
+      - name: Zip the Executable
+        run: |
+          cd server
+          zip -r dist.zip dist
+
+      - name: Upload Executable
+        uses: actions/upload-artifact@v4
+        with:
+          name: Build-macOS
+          path: server/dist.zip

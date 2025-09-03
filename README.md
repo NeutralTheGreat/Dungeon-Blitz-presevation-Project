@@ -20,6 +20,7 @@
    * **Option 2:** Flash-Compatible Browser
 
      * Open `http://localhost/index.html` in your browser
+  
 
 ---
 
