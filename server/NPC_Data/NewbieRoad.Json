@@ -58,7 +58,7 @@
       "untargetable": false,
       "render_depth_offset": -30,
       "behavior_speed": 0.0,
-      "Linked_Mission": "",
+      "Linked_Mission": "NR_Elric",
       "DramaAnim": "",
       "SleepAnim": "",
       "summonerId": 0,
@@ -81,7 +81,7 @@
       "untargetable": false,
       "render_depth_offset": -50,
       "behavior_speed": 0.0,
-      "Linked_Mission": "NR_Villager03",
+      "Linked_Mission": "NR_Merchant01",
       "DramaAnim": "",
       "SleepAnim": "",
       "summonerId": 50,
@@ -172,7 +172,7 @@
       "untargetable": false,
       "render_depth_offset": -20,
       "behavior_speed": 0,
-      "Linked_Mission": "",
+      "Linked_Mission": "NR_Merchant01",
       "DramaAnim": "",
       "SleepAnim": "",
       "summonerId": 50,
@@ -197,7 +197,7 @@
       "untargetable": false,
       "render_depth_offset": -20,
       "behavior_speed": 0,
-      "Linked_Mission": "",
+      "Linked_Mission": "NR_Trainer01",
       "DramaAnim": "",
       "SleepAnim": "",
       "summonerId": 50,
@@ -222,7 +222,7 @@
       "untargetable": false,
       "render_depth_offset": -20,
       "behavior_speed": 0,
-      "Linked_Mission": "",
+      "Linked_Mission": "NROdem",
       "DramaAnim": "",
       "SleepAnim": "",
       "summonerId": 50,
@@ -247,7 +247,7 @@
       "untargetable": false,
       "render_depth_offset": -20,
       "behavior_speed": 0,
-      "Linked_Mission": "",
+      "Linked_Mission": "NRAffric",
       "DramaAnim": "",
       "SleepAnim": "",
       "summonerId": 50,
@@ -620,6 +620,56 @@
       "buff_icon": 0
   },
   {
+      "id": 34,
+      "name": "GoblinClub",
+      "x": 8613,
+      "y": 2299,
+      "v": 0,
+      "team": 2,
+      "entState": 1,
+      "untargetable": false,
+      "render_depth_offset": -90,
+      "behavior_speed": 0,
+      "Linked_Mission": "",
+      "DramaAnim": "",
+      "SleepAnim": "",
+      "level": 0,
+      "power_id": 0,
+      "facing_left": true,
+      "health_delta": 0,
+      "buffs": [],
+      "max_hp": 0,
+      "mount_id": 0,
+      "model_id":  0,
+      "head_type_id": 0,
+      "buff_icon": 0
+  },
+  {
+      "id": 35,
+      "name": "NPCRuggedVillager07",
+      "x": 4143,
+      "y": 490,
+      "v": 0,
+      "team": 3,
+      "entState": 1,
+      "untargetable": false,
+      "render_depth_offset": -10,
+      "behavior_speed": 0,
+      "Linked_Mission": "NR_IntroVillager",
+      "DramaAnim": "",
+      "SleepAnim": "",
+      "level": 0,
+      "power_id": 0,
+      "facing_left": true,
+      "health_delta": 0,
+      "buffs": [],
+      "max_hp": 0,
+      "mount_id": 0,
+      "model_id":  0,
+      "head_type_id": 0,
+      "buff_icon": 0
+  },
+  {
     "is_player": true,
     "id": 150,
     "name": "Neutral",
@@ -718,411 +768,9 @@
       "v": 0,
       "team": 1,
       "facing_left": false,
-      "PlayerLevel": 50
-  },
-  {
-    "is_player": true,
-    "id": 151,
-    "name": "Raziel",
-    "class": "Rogue",
-    "gender": "Male",
-      "headSet": "MaleHead",
-      "hairSet": "Do01",
-      "mouthSet": "Mouth01",
-      "faceSet": "Face01",
-      "hairColor": 20177,
-      "skinColor": 16764057,
-      "shirtColor": 800947,
-      "pantColor": 2437039,
-      "equippedGears": [
-        {
-          "gearID": 0,
-          "tier": 0,
-          "runes": [
-            0,
-            0,
-            0
-          ],
-          "colors": [
-            0,
-            0
-          ]
-        },
-        {
-          "gearID": 0,
-          "tier": 0,
-          "runes": [
-            0,
-            0,
-            0
-          ],
-          "colors": [
-            0,
-            0
-          ]
-        },
-        {
-          "gearID": 0,
-          "tier": 0,
-          "runes": [
-            0,
-            0,
-            0
-          ],
-          "colors": [
-            0,
-            0
-          ]
-        },
-        {
-          "gearID": 0,
-          "tier": 0,
-          "runes": [
-            0,
-            0,
-            0
-          ],
-          "colors": [
-            0,
-            0
-          ]
-        },
-        {
-          "gearID": 27,
-          "tier": 0,
-          "runes": [
-            0,
-            0,
-            0
-          ],
-          "colors": [
-            0,
-            0
-          ]
-        },
-        {
-          "gearID": 39,
-          "tier": 0,
-          "runes": [
-            0,
-            0,
-            0
-          ],
-          "colors": [
-            0,
-            0
-          ]
-        }
-      ],
-      "x": 3577,
-      "y": 579,
-      "v": 0,
-      "team": 1,
-      "facing_left": true,
-      "PlayerLevel": 45
-  },
-  {
-    "is_player": true,
-    "id": 152,
-    "name": "Raynare",
-    "class": "Mage",
-    "gender": "Male",
-      "headSet": "Head03",
-      "hairSet": "Do04",
-      "mouthSet": "M03",
-      "faceSet": "F13",
-      "hairColor": 12591,
-      "skinColor": 16764057,
-      "shirtColor": 13489881,
-      "pantColor": 13489881,
-      "equippedGears": [
-        {
-          "gearID": 699,
-          "tier": 1,
-          "runes": [
-            0,
-            0,
-            0
-          ],
-          "colors": [
-            18,
-            18
-          ]
-        },
-        {
-          "gearID": 972,
-          "tier": 1,
-          "runes": [
-            0,
-            0,
-            0
-          ],
-          "colors": [
-            1,
-            0
-          ]
-        },
-        {
-          "gearID": 1055,
-          "tier": 1,
-          "runes": [
-            0,
-            0,
-            0
-          ],
-          "colors": [
-            18,
-            18
-          ]
-        },
-        {
-          "gearID": 708,
-          "tier": 1,
-          "runes": [
-            0,
-            0,
-            0
-          ],
-          "colors": [
-            18,
-            0
-          ]
-        },
-        {
-          "gearID": 1135,
-          "tier": 1,
-          "runes": [
-            0,
-            0,
-            0
-          ],
-          "colors": [
-            24,
-            18
-          ]
-        },
-        {
-          "gearID": 961,
-          "tier": 1,
-          "runes": [
-            0,
-            0,
-            0
-          ],
-          "colors": [
-            67,
-            18
-          ]
-        }
-      ],
-      "x": 4127,
-      "y": 487,
-      "v": 0,
-      "team": 1,
-      "facing_left": false,
-      "PlayerLevel": 40
-  },
-  {
-    "is_player": true,
-    "id": 153,
-      "name": "Viawizee",
-      "class": "Rogue",
-      "gender": "Female",
-      "headSet": "FemaleHead",
-      "hairSet": "FDo17",
-      "mouthSet": "FMouth04",
-      "faceSet": "FFace04",
-      "hairColor": 13315072,
-      "skinColor": 16764057,
-      "shirtColor": 466983,
-      "pantColor": 466983,
-      "equippedGears": [
-        {
-          "gearID": 1028,
-          "tier": 1,
-          "runes": [
-            0,
-            0,
-            0
-          ],
-          "colors": [
-            0,
-            0
-          ]
-        },
-        {
-          "gearID": 1032,
-          "tier": 1,
-          "runes": [
-            0,
-            0,
-            0
-          ],
-          "colors": [
-            0,
-            0
-          ]
-        },
-        {
-          "gearID": 1025,
-          "tier": 1,
-          "runes": [
-            0,
-            0,
-            0
-          ],
-          "colors": [
-            0,
-            0
-          ]
-        },
-        {
-          "gearID": 1035,
-          "tier": 1,
-          "runes": [
-            0,
-            0,
-            0
-          ],
-          "colors": [
-            0,
-            0
-          ]
-        },
-        {
-          "gearID": 1017,
-          "tier": 1,
-          "runes": [
-            0,
-            0,
-            0
-          ],
-          "colors": [
-            0,
-            0
-          ]
-        },
-        {
-          "gearID": 1021,
-          "tier": 1,
-          "runes": [
-            0,
-            0,
-            0
-          ],
-          "colors": [
-            0,
-            0
-          ]
-        }
-      ],
-      "x": 2762,
-      "y": 599,
-      "v": 0,
-      "team": 1,
-      "facing_left": true,
-      "PlayerLevel": 30
-  },
-  {
-    "is_player": true,
-    "id": 153,
-      "name": "Viawizee",
-      "class": "Rogue",
-      "gender": "Female",
-      "headSet": "FemaleHead",
-      "hairSet": "FDo17",
-      "mouthSet": "FMouth04",
-      "faceSet": "FFace04",
-      "hairColor": 13315072,
-      "skinColor": 16764057,
-      "shirtColor": 466983,
-      "pantColor": 466983,
-      "equippedGears": [
-        {
-          "gearID": 1028,
-          "tier": 2,
-          "runes": [
-            70,
-            70,
-            70
-          ],
-          "colors": [
-            0,
-            0
-          ]
-        },
-        {
-          "gearID": 1032,
-          "tier": 2,
-          "runes": [
-            70,
-            70,
-            70
-          ],
-          "colors": [
-            0,
-            0
-          ]
-        },
-        {
-          "gearID": 1025,
-          "tier": 2,
-          "runes": [
-            70,
-            70,
-            70
-          ],
-          "colors": [
-            0,
-            0
-          ]
-        },
-        {
-          "gearID": 1035,
-          "tier": 2,
-          "runes": [
-            70,
-            70,
-            70
-          ],
-          "colors": [
-            0,
-            0
-          ]
-        },
-        {
-          "gearID": 1017,
-          "tier": 2,
-          "runes": [
-            70,
-            70,
-            70
-          ],
-          "colors": [
-            0,
-            0
-          ]
-        },
-        {
-          "gearID": 1021,
-          "tier": 2,
-          "runes": [
-            70,
-            70,
-            70
-          ],
-          "colors": [
-            0,
-            0
-          ]
-        }
-      ],
-      "x": 2762,
-      "y": 599,
-      "v": 0,
-      "team": 1,
+      "PlayerLevel": 50,
       "set_timing_flag": true,
-      "show_appearance_effect": false,
+      "show_appearance_effect": true,
       "PetTypeID": 1,
       "PetLevel": 1,
       "MountID": 1,
@@ -1134,8 +782,6 @@
       ],
       "power_id": 0,
       "entState": 0,
-      "facing_left": true,
-      "PlayerLevel": 50,
       "Talent_id": 10
-    }
+  }
  ]

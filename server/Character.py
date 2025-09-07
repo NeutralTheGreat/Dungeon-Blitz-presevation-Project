@@ -5,12 +5,12 @@ import json
 import struct
 
 from BitUtils import BitBuffer
-from Items import inventory_gears, default_learned_abilities, starting_dyes, \
-    Active_master_Class, Mastery_Class, Active_Abilities, Starting_Mounts, \
-    Starting_Pets, Starter_Weapons, Buildings, Starting_Charms, \
-    Starting_Materials, Starting_Consumables, Starting_Missions
 from constants import GearType, GEARTYPE_BITS
 
+def load_class_template(class_name: str) -> dict:
+    path = os.path.join("data", f"{class_name.lower()}_template.json")
+    with open(path, "r", encoding="utf-8") as f:
+        return json.load(f)
 
 def build_level_gears_packet(gears_list: list[tuple[int, int]]) -> bytes:
     """
@@ -112,9 +112,7 @@ DEFAULT_GEAR = {
         [0, 0, 0, 0, 0, 0],  # Boots
     ],
 }
-
 CHAR_SAVE_DIR = "saves"
-
 
 def load_characters(user_id: str) -> list[dict]:
     """Load the list of characters for a given user_id."""
@@ -142,213 +140,6 @@ def save_characters(user_id: str, char_list: list[dict]):
     data["characters"] = char_list
     with open(path, "w", encoding="utf-8") as f:
         json.dump(data, f, ensure_ascii=False, indent=2)
-
-
-def make_character_dict_from_tuple(character):
-    """
-    character is a tuple of:
-      (name, class_name, level,
-       gender, head, hair, mouth, face,
-       hair_color, skin_color, shirt_color, pant_color,
-       equipped_gear)
-    where equipped_gear can be:
-      - None → use DEFAULT_GEAR for that class
-      - a list of six 6-element lists → use directly
-    """
-    (name, class_name, level,
-     gender, head, hair, mouth, face,
-     hair_color, skin_color, shirt_color, pant_color,
-     equipped_gear) = character
-
-    cls = class_name.lower()
-
-    # If provided a full 6×6 structure, validate and use it:
-    if (isinstance(equipped_gear, (list, tuple))
-            and len(equipped_gear) == 6
-            and all(isinstance(slot, (list, tuple)) and len(slot) == 6
-                    for slot in equipped_gear)):
-        gear_list = [list(slot) for slot in equipped_gear]
-    else:
-        # Otherwise, pull from our per-class defaults
-        default = DEFAULT_GEAR.get(cls, [[0] * 6] * 6)
-        gear_list = [list(slot) for slot in default]
-
-    starting_inventory = inventory_gears.get(cls, [])
-    starting_abilities = default_learned_abilities.get(cls, [])
-    starting_talent = Active_master_Class.get(cls, [])
-    Starting_Mastery = Mastery_Class.get(cls, [])
-    starter_gear = Starter_Weapons.get(cls, [])
-    Starting_Active_Abilities = Active_Abilities.get(cls, [])
-    Starting_Buildings = Buildings.get(cls, [])
-
-    char_dict = {
-        "name": name,
-        "class": class_name,
-        "level": level,
-        "xp": 29116890,
-        "gold": 100000,
-        "craftXP": 100000,
-        "DragonOre": 100000,
-        "mammothIdols": 100000,
-        "DragonKeys": 100000,
-        "SilverSigils": 100000,
-        "gender": gender or "Male",
-        "headSet": head or "Head01",
-        "hairSet": hair or "Hair01",
-        "mouthSet": mouth or "Mouth01",
-        "faceSet": face or "Face01",
-        "hairColor": hair_color,
-        "skinColor": skin_color,
-        "shirtColor": shirt_color,
-        "pantColor": pant_color,
-        "equippedGears": starter_gear,
-        "CurrentLevel": {"name": "CraftTown", "x": 360, "y": 1458.99},
-        "PreviousLevel": {"name": "NewbieRoad", "x": 0, "y": 0},
-        "inventoryGears": starting_inventory,
-        "gearSets": [],
-        "mounts": Starting_Mounts,
-        "pets": Starting_Pets,
-        "charms": Starting_Charms,
-        "materials": Starting_Materials,
-        "lockboxes": [{"lockboxID": 1, "count": 100}],
-        "OwnedDyes": starting_dyes,
-        "consumables": Starting_Consumables,
-        "missions": Starting_Missions,
-        "friends": [
-            {
-                "name": "Neutral",
-                "className": "Paladin",
-                "level": 40,
-                "stateVersion": 5,
-                "isRequest": True,
-                "isOnline": True
-            },
-            {
-                "name": "Neo",
-                "className": "Mage",
-                "level": 20,
-                "stateVersion": 5,
-                "isRequest": True,
-                "isOnline": True
-            },
-            {
-                "name": "Tired",
-                "className": "Rogue",
-                "level": 23,
-                "stateVersion": 5,
-                "isRequest": False,
-                "isOnline": True
-            },
-            {
-                "name": "Telahair",
-                "className": "Mage",
-                "level": 23,
-                "stateVersion": 5,
-                "isRequest": False,
-                "isOnline": False
-            },
-            {
-                "name": "twig",
-                "className": "Rogue",
-                "level": 50,
-                "stateVersion": 5,
-                "isRequest": False,
-                "isOnline": True
-            }
-        ],
-        "learnedAbilities": starting_abilities,
-        "activeAbilities": Starting_Active_Abilities,
-        "craftTalentPoints": [5, 5, 5, 5, 5],  # these are the Magic Forge upgrade points Max value is 10 each
-        "talentPoints": {
-            "1": 1,
-            "2": 1,
-            "3": 1
-        },  # Talent upgrade 50 Max each
-        # =================
-        "magicForge": {
-            "stats_by_building": Starting_Buildings,
-            "hasSession": False,
-            "primary": 0,
-            "secondary": 0,
-            "status": 0,
-            "duration": 0,
-            "_start_time": 0,
-            "var_8": 0,
-            "usedlist": 0,
-            "var_2675": 0,
-            "var_2316": 0,
-            "var_2434": False
-        },
-        # ===================
-        "research": {
-            "abilityID": 0,
-            "ReadyTime": 0,
-            "done": True
-        },
-        "buildingUpgrade": {
-            "buildingID": 0,
-            "rank": 0,
-            "ReadyTime": 0,
-            "done": True,
-            "isInstant": False
-        },
-        "talentResearch": {
-            "classIndex": None,
-            "ReadyTime": 0,
-            "done": True,
-            "isInstant": False
-        },
-        "EggHachery": {
-             "EggID": 0,
-             "ReadyTime": 0,
-             "done": True
-        },
-        "OwnedEggsID": [1, 2, 30, 27, 5, 35, 20, 17],
-        "activeEggCount": 5,
-        "restingPets": [
-            {
-                "typeID": 2
-            },
-            {
-                "typeID": 3
-            },
-            {
-                "typeID": 4
-            }
-        ],
-        "trainingPet": [
-            {
-                "typeID": 0,
-                "trainingTime": 0
-            }
-        ],
-        "MasterClass": starting_talent,
-        "Mastery": Starting_Mastery,
-        "equippedMount": 1,
-        "equippedPetID": 1,
-        "activeConsumableID": 13,
-        "queuedConsumableID": 12,
-        "guild": {
-            "name": "KnightsOfValor",
-            "rank": 2,
-            "onlineMembers": [
-                {
-                    "name": "ProGooner",
-                    "classID": 1,
-                    "level": 50,
-                    "status": 3
-                },
-                {
-                    "name": "FriendlyNephit",
-                    "classID": 1,
-                    "level": 43,
-                    "status": 3
-                }
-            ]
-        },
-
-    }
-    return char_dict
 
 
 def build_paperdoll_packet(character_dict):

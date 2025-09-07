@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+import copy
 import os
 import json
 import socket, struct, hashlib, sys, time, secrets, threading
@@ -6,11 +7,10 @@ import socket, struct, hashlib, sys, time, secrets, threading
 from Brain import tick_npc_brains
 from accounts import get_or_create_user_id, load_accounts, _SAVES_DIR, is_character_name_taken, build_popup_packet
 from Character import (
-    make_character_dict_from_tuple,
     build_login_character_list_bitpacked,
     build_paperdoll_packet,
     load_characters,
-    save_characters, get_inventory_gears, build_level_gears_packet
+    save_characters, get_inventory_gears, build_level_gears_packet, load_class_template
 )
 from BitUtils import BitBuffer
 from Commands import handle_hotbar_packet, handle_masterclass_packet, handle_gear_packet, \
@@ -190,17 +190,6 @@ def handle_client(session: ClientSession):
     tick_npc_brains(all_sessions)
 
     prune_extended_sent_map(timeout=2)
-
-    # On login, reschedule future research
-    if session.user_id:
-        now = int(time.time())
-        for char in session.char_list:
-            research = char.get("research")
-            if research and not research.get("done", False):
-                rt = research.get("ReadyTime", 0)
-                if rt > now:
-                    schedule_research(session.user_id, char["name"], rt)
-
     buffer = bytearray()
     try:
         while True:
@@ -245,24 +234,16 @@ def handle_client(session: ClientSession):
                 session.user_id = get_or_create_user_id(email)
                 session.char_list = load_characters(session.user_id)
                 session.authenticated = True
-                # reschedule research again after login
-                now = int(time.time())
-                for char in session.char_list:
-                    research = char.get("research")
-                    if research and not research.get("done", False):
-                        rt = research.get("ReadyTime", 0)
-                        if rt > now:
-                            schedule_research(session.user_id, char["name"], rt)
                 conn.sendall(build_login_character_list_bitpacked(session.char_list))
 
             elif pkt == 0x14:  # Done
                 br = BitReader(data[4:], debug=True)
                 try:
-                    _ = br.read_string()  # skip first string
-                    _ = br.read_string()  # skip second string
-                    email = br.read_string().strip().lower()
-                    _ = br.read_string()  # skip next
-                    _ = br.read_string()  # skip next
+                    client_facebook_id = br.read_string()  # Facebook platform ID
+                    client_kongregate_id = br.read_string()  # Kongregate platform ID
+                    email = br.read_string().strip().lower()  # Primary login identifier
+                    password = br.read_string()  # Password or session token
+                    legacy_auth_key = br.read_string()  # Embed auth key / API key
                 except Exception as e:
                     print(f"[{session.addr}] [PKT0x14] Error parsing packet: {e}, raw payload={data[4:].hex()}")
                     continue
@@ -284,46 +265,61 @@ def handle_client(session: ClientSession):
                 print(f"[{session.addr}] [PKT0x14] Logged in {email} → user_id={user_id}, chars={len(session.char_list)}")
 
 
-            elif pkt == 0x17:# Done
+
+            elif pkt == 0x17:
                 if not session.authenticated:
                     err_packet = build_popup_packet("Please log in first", disconnect=True)
                     conn.sendall(err_packet)
                     continue
                 br = BitReader(data[4:], debug=True)
                 try:
-                    tup = (
-                        br.read_string(),  # name
-                        br.read_string(),  # class
-                        20,  # level
-                        br.read_string(),  # gender
-                        br.read_string(),  # head
-                        br.read_string(),  # hair
-                        br.read_string(),  # mouth
-                        br.read_string(),  # face
-                        br.read_bits(24),  # hairColor
-                        br.read_bits(24),  # skinColor
-                        br.read_bits(24),  # shirtColor
-                        br.read_bits(24),  # pantColor
-                        None  # equipped_gear
-                    )
-                    print(f"[{session.addr}] [PKT0x17] Parsed character creation: name={tup[0]}, class={tup[1]}, gender={tup[3]}")
-
+                    name = br.read_string()  # character name
+                    class_name = br.read_string()
+                    gender = br.read_string()
+                    head = br.read_string()
+                    hair = br.read_string()
+                    mouth = br.read_string()
+                    face = br.read_string()
+                    hair_color = br.read_bits(24)
+                    skin_color = br.read_bits(24)
+                    shirt_color = br.read_bits(24)
+                    pant_color = br.read_bits(24)
+                    print(f"[{session.addr}] [PKT0x17] Parsed character creation: "
+                          f"name={name}, class={class_name}, gender={gender}")
                 except Exception as e:
                     print(f"[{session.addr}] [PKT0x17] Error parsing packet: {e}, raw payload={data[4:].hex()}")
                     continue
-                # Check for duplicate character name
-                if is_character_name_taken(tup[0]):
-                    print(f"[{session.addr}] [PKT0x17] Character name {tup[0]} is already taken")
-                    err_packet = build_popup_packet("Character name is unavailable. Please choose a new name.",
-                                                    disconnect=False)
+                if is_character_name_taken(name):
+                    err_packet = build_popup_packet(
+                        "Character name is unavailable. Please choose a new name.",
+                        disconnect=False
+                    )
                     conn.sendall(err_packet)
                     continue
-                new_char = make_character_dict_from_tuple(tup)
+                # Load class template
+                base_template = load_class_template(class_name)
+                new_char = copy.deepcopy(base_template)
+                # Apply the client-selected cosmetic choices
+                new_char.update({
+                    "name": name,
+                    "class": class_name,
+                    "gender": gender,
+                    "headSet": head,
+                    "hairSet": hair,
+                    "mouthSet": mouth,
+                    "faceSet": face,
+                    "hairColor": hair_color,
+                    "skinColor": skin_color,
+                    "shirtColor": shirt_color,
+                    "pantColor": pant_color,
+                })
                 session.char_list.append(new_char)
                 save_characters(session.user_id, session.char_list)
+
                 # Send updated character list (0x15)
                 conn.sendall(build_login_character_list_bitpacked(session.char_list))
                 print(f"[{session.addr}] [PKT0x17] Sent 0x15 character list update")
+
                 # Send paperdoll packet (0x1A)
                 pd = build_paperdoll_packet(new_char)
                 conn.sendall(struct.pack(">HH", 0x1A, len(pd)) + pd)

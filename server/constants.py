@@ -249,6 +249,9 @@ class GearType:
     const_348          = 3
     const_176          = 2
 
+class class_13:
+      const_949 = 3
+
 class class_66:
     const_465 = 3
     const_409 = 6

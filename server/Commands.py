@@ -10,7 +10,7 @@ from accounts import build_popup_packet
 from bitreader import BitReader
 from constants import GearType, EntType, class_64, class_1, DyeType, class_118, method_277, \
     class_111, class_1_const_254, class_8, class_3, \
-    get_ability_info, load_building_data, find_building_data, class_66, LinkUpdater, PowerType, Entity, Game
+    get_ability_info, load_building_data, find_building_data, class_66, LinkUpdater, PowerType, Entity, Game, class_13
 from BitUtils import BitBuffer
 from constants import get_dye_color
 from level_config import SPAWN_POINTS, DOOR_MAP, LEVEL_CONFIG
@@ -21,7 +21,7 @@ from missions import _MISSION_DEFS_BY_ID
 SAVE_PATH_TEMPLATE = "saves/{user_id}.json"
 
 
-
+#TODO...
 def handle_talk_to_npc(session, data, all_sessions):
     payload = data[4:]
     br = BitReader(payload)
@@ -32,7 +32,7 @@ def handle_talk_to_npc(session, data, all_sessions):
         print(f"[{session.addr}] [PKT0x7A] Failed to parse NPC ID: {e}")
         return
 
-    # Look up in session.entities (where you already insert NPCs on spawn)
+    # Look up in session.entities (where NPCs are inserted on spawn)
     npc = session.entities.get(npc_id)
     if not npc:
         print(f"[{session.addr}] [PKT0x7A] Unknown NPC id={npc_id}")
@@ -40,52 +40,87 @@ def handle_talk_to_npc(session, data, all_sessions):
 
     npc_name = npc.get("name", f"NPC_{npc_id}")
     print(f"[{session.addr}] [PKT0x7A] Talked to NPC {npc_id} ({npc_name})")
-"""
-    # ── case 1: Skit NPCs ──
-    if npc_name.startswith("Special_Halloween_Statue"):
-        if "First" in npc_name: skit_idx = 1
-        elif "Second" in npc_name: skit_idx = 2
-        elif "Third" in npc_name: skit_idx = 3
-        elif "Fourth" in npc_name: skit_idx = 4
-        else: skit_idx = 0
 
-        if skit_idx:
-            # Build a fake payload like handle_start_skit expects
-            bb = BitBuffer()
-            bb.write_method_4(npc_id)
-            bb.write_bits(1, 1)  # flag = True
-            bb.write_method_13(f"{npc_name} says hello!")  # placeholder line
-            handle_start_skit(session, struct.pack(">HH", 0xC5, len(bb.to_bytes())) + bb.to_bytes(), all_sessions)
+    # Build and send the skit packet to the interacting client only
+    skit_packet = build_start_skit_packet(npc_id, dialogue_id=0, mission_id=0)
+    session.conn.sendall(skit_packet)
+
+"""def handle_talk_to_npc(session, data, all_sessions):
+
+    #Handles client packet 0x7A (talk-to-NPC request).
+    #Reads the NPC ID, determines what dialogue/skit should play based on
+    #current missions and NPC role, then sends the start-skit packet
+    #back to the interacting client only.
+
+    payload = data[4:]
+    br = BitReader(payload)
+
+    try:
+        npc_id = br.read_method_9()
+    except Exception as e:
+        print(f"[{session.addr}] [PKT0x7A] Failed to parse NPC ID: {e}")
         return
 
-    # ── case 2: Quest-givers ──
-    missions = []
-    for mid, mission in _MISSION_DEFS_BY_ID.items():
-        row = mission.get("_raw")  # you’ll need to stash original mission row in loader
-        if not row:
+    npc = session.entities.get(npc_id)
+    if not npc:
+        print(f"[{session.addr}] [PKT0x7A] Unknown NPC id={npc_id}")
+        return
+
+    npc_name = npc.get("name", f"NPC_{npc_id}")
+
+    # Default values: generic dialogue (no mission involvement)
+    dialogue_id = 0
+    mission_id = 0
+
+    # Get player's mission state
+    char_data = getattr(session, "current_char_dict", None) or {}
+    player_missions = char_data.get("missions", {})
+
+    # Try to match a mission relevant to this NPC
+    for mid_str, mdata in player_missions.items():
+        try:
+            mid = int(mid_str)
+        except (ValueError, TypeError):
             continue
 
-        if row.get("ContactName") == npc_name or row.get("ReturnName") == npc_name:
-            missions.append((mid, row))
+        mextra = get_mission_extra(mid)
+        if not mextra:
+            continue
 
-    if missions:
-        for mid, row in missions:
-            state = session.save.missions.get(str(mid), {}).get("state", 0)
+        contact_name = (mextra.get("ContactName") or "").strip()
+        return_name = (mextra.get("ReturnName") or "").strip()
+        state = mdata.get("state", 2)
+
+        if npc_name == contact_name:
             if state == 0:
-                dialog = row.get("OfferText", "")
-            elif state == 2:  # completed
-                dialog = row.get("ReturnText", "")
-            else:
-                dialog = row.get("PreReqText", "")
+                dialogue_id = 2  # OfferText
+                mission_id = 0  # not yet acquired — do not send mission ID
+            elif state == 1:
+                dialogue_id = 3  # ActiveText
+                mission_id = mid
+            elif state == 2:
+                dialogue_id = 5  # PraiseText
+                mission_id = mid
 
-            send_npc_dialog(session, npc_id, dialog)
+        elif npc_name == return_name or state == 2:
+            if state == 1:
+                dialogue_id = 4
+            elif state == 2:
+                dialogue_id = 5
+            mission_id = mid
+            break
+    # Build and send the start skit packet only to this client
+    pkt = build_start_skit_packet(npc_id, dialogue_id, mission_id)
+    session.conn.sendall(pkt)
+    print(
+        f"[{session.addr}] [PKT0x7A] Talked to NPC ID: {npc_id} ({npc_name}) → "
+        f"sent skit (dialogue_id={dialogue_id}, mission_id={mission_id})"
+    )
 """
 
 #TODO...
 def handle_collect_hatched_egg(conn, char):
       pass
-
-
 
 REWARD_TYPES = ['gear', 'item', 'gold', 'chest', 'xp', 'potion']
 GEARTYPE_BITS = GearType.GEARTYPE_BITSTOSEND  # e.g. 5
@@ -1931,6 +1966,21 @@ def send_consumable_update(conn, consumable_id: int, new_count: int):
     body = bb.to_bytes()
     packet = struct.pack(">HH", 0x10C, len(body)) + body
     conn.sendall(packet)
+
+def build_start_skit_packet(entity_id: int, dialogue_id: int = 0, mission_id: int = 0) -> bytes:
+    """
+    Build packet for client to start a skit/dialogue.
+    entity_id: The NPC's entity ID.
+    dialogue_id: Which dialogue to show (0–5).
+    mission_id: Currently unused, but protocol reserves it.
+    """
+    bb = BitBuffer()
+    bb.write_method_4(entity_id)        # Entity ID
+    bb.write_method_6(dialogue_id, 3)   # Dialogue ID (3 bits)
+    bb.write_method_4(mission_id)       # Mission ID (reserved / unused for now)
+
+    payload = bb.to_bytes()
+    return struct.pack(">HH", 0x7B, len(payload)) + payload
 
 def send_npc_dialog(session, npc_id, text):
     bb = BitBuffer()
