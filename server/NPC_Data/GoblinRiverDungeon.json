@@ -2321,5 +2321,28 @@
 		"max_hp": 2,
 		"mount_id": 2,
 		"buff_icon": 0
+	},
+	{
+		"id": 102,
+		"name": "GoblinBoss2",
+		"x": 24816,
+		"y": 1877,
+		"v": 0,
+		"team": 2,
+		"entState": 1,
+		"untargetable": false,
+		"render_depth_offset": 0,
+		"behavior_speed": 2220.0,
+		"Linked_Mission": "",
+		"DramaAnim": "",
+		"SleepAnim": "",
+		"summonerId": 0,
+		"power_id": 2,
+		"facing_left": true,
+		"health_delta": 2,
+		"buffs": [],
+		"max_hp": 2,
+		"mount_id": 2,
+		"buff_icon": 0
 	}
 ]
