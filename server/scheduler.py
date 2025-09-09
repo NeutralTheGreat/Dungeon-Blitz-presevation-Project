@@ -6,7 +6,7 @@ import time
 import heapq
 import struct
 
-from BitUtils import BitBuffer
+from BitBuffer import BitBuffer
 from Character import save_characters, load_characters, CHAR_SAVE_DIR
 from constants import class_111, class_64_const_218, class_1
 
@@ -78,7 +78,7 @@ def reschedule_for_session(session):
 
                 # Send the "research complete" packet immediately
                 bb = BitBuffer()
-                bb.insert_bits(research["abilityID"], 7)
+                bb.write_method_6(research["abilityID"], 7)
                 payload = bb.to_bytes()
                 session.conn.sendall(struct.pack(">HH", 0xC0, len(payload)) + payload)
                 print(f"[{session.addr}] Sent research-complete on login abilityID={research['abilityID']}")
@@ -110,7 +110,7 @@ def _on_research_done_for(user_id: str, char_name: str):
                 mem_char["research"]["done"] = True
             try:
                 bb = BitBuffer()
-                bb.insert_bits(research["abilityID"], 7)
+                bb.write_method_6(research["abilityID"], 7)
                 payload = bb.to_bytes()
                 session.conn.sendall(struct.pack(">HH", 0xbf, len(payload)) + payload)
                 print(f"[{session.addr}] Sent research-complete (0xbf) abilityID={research['abilityID']}")
@@ -293,8 +293,8 @@ def _on_talent_done_for(user_id: str, char_name: str):
     # 6) Send the “research complete” packet (0xD5)
     try:
         bb = BitBuffer()
-        bb.insert_bits(class_idx, 2)
-        bb.insert_bits(1, 1)   # status = complete
+        bb.write_method_6(class_idx, 2)
+        bb.write_method_6(1, 1)   # status = complete
         payload = bb.to_bytes()
         session.conn.sendall(struct.pack(">HH", 0xD5, len(payload)) + payload)
         print(f"[{session.addr}] Sent talent‐research complete (0xD5) for classIndex={class_idx}")

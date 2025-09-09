@@ -1,7 +1,7 @@
 import json
 import os
 
-from BitUtils import BitBuffer
+from BitBuffer import BitBuffer
 from constants import Entity, class_7, class_20, class_3, Game, class_118, \
     LinkUpdater, EntType, GearType, class_64, class_21, method_277, GAME_CONST_209, NUM_TALENT_SLOTS, \
     CLASS_118_CONST_127, SLOT_BIT_WIDTHS
@@ -129,23 +129,23 @@ def Send_Entity_Data(entity: Dict[str, Any]) -> bytes:
 
     # 3) Player Appearance block
     if entity.get("is_player", False):
-        bb.write_bits(1, 1)  # send visuals block
+        bb.write_method_6(1, 1)  # send visuals block
         bb.write_method_13(entity.get("class", ""))
         bb.write_method_13(entity.get("gender", ""))
         bb.write_method_13(entity.get("headSet", ""))
         bb.write_method_13(entity.get("hairSet", ""))
         bb.write_method_13(entity.get("mouthSet", ""))
         bb.write_method_13(entity.get("faceSet", ""))
-        bb.write_bits(entity.get("hairColor", 0), 24)
-        bb.write_bits(entity.get("skinColor", 0), 24)
-        bb.write_bits(entity.get("shirtColor", 0), 24)
-        bb.write_bits(entity.get("pantColor", 0), 24)
+        bb.write_method_6(entity.get("hairColor", 0), 24)
+        bb.write_method_6(entity.get("skinColor", 0), 24)
+        bb.write_method_6(entity.get("shirtColor", 0), 24)
+        bb.write_method_6(entity.get("pantColor", 0), 24)
         equipped = entity.get('equippedGears', [])
         for slot in range(1, EntType.MAX_SLOTS):
             idx = slot - 1
             if idx < len(equipped) and equipped[idx] is not None:
                 gear = equipped[idx]
-                bb.write_bits(1, 1)
+                bb.write_method_6(1, 1)
                 bb.write_method_6(gear['gearID'], GearType.GEARTYPE_BITSTOSEND)
                 bb.write_method_6(gear['tier'], GearType.const_176)
                 runes = gear.get('runes', [0, 0, 0])
@@ -156,10 +156,10 @@ def Send_Entity_Data(entity: Dict[str, Any]) -> bytes:
                 bb.write_method_6(colors[0], class_21.const_50)
                 bb.write_method_6(colors[1], class_21.const_50)
             else:
-                bb.write_bits(0, 1)
+                bb.write_method_6(0, 1)
 
     else:
-        bb.write_bits(0, 1)  # skip entire visuals section
+        bb.write_method_6(0, 1)  # skip entire visuals section
 
     # 4) Position + Velocity
     bb.write_signed_method_45(int(entity['x']))  # x
@@ -171,17 +171,17 @@ def Send_Entity_Data(entity: Dict[str, Any]) -> bytes:
     # ── Player OR NPC branch ──
     if entity.get("is_player", False):
         # 5a) Signal “yes, player data follows”
-        bb.write_bits(1, 1)
+        bb.write_method_6(1, 1)
 
         # 5b) Write _loc13_ (timing flag for method_1273)
         timing_flag = entity.get("set_timing_flag", False)  # True for new spawns or significant updates
-        bb.write_bits(1 if timing_flag else 0, 1)
+        bb.write_method_6(1 if timing_flag else 0, 1)
         if bb.debug:
             bb.debug_log.append(f"timing_flag={timing_flag}")
 
         # 5c) Write _loc14_ (appearance flag for method_1646)
         appearance_flag = entity.get("show_appearance_effect", False)  # True for new player  spawns if the player is already in the level then it is False
-        bb.write_bits(1 if appearance_flag else 0, 1)
+        bb.write_method_6(1 if appearance_flag else 0, 1)
         if bb.debug:
             bb.debug_log.append(f"appearance_flag={appearance_flag}")
 
@@ -195,7 +195,7 @@ def Send_Entity_Data(entity: Dict[str, Any]) -> bytes:
 
         abilities = entity.get("abilities", [])
         has_abilities = len(abilities) > 0
-        bb.write_bits(1 if has_abilities else 0, 1)
+        bb.write_method_6(1 if has_abilities else 0, 1)
         if bb.debug:
             bb.debug_log.append(f"has_abilities={has_abilities}")
         if has_abilities:
@@ -209,52 +209,52 @@ def Send_Entity_Data(entity: Dict[str, Any]) -> bytes:
 
     else:
         # 5a) NPCs skip the player block
-        bb.write_bits(0, 1)
+        bb.write_method_6(0, 1)
 
-        bb.write_bits(1 if entity.get("untargetable", False) else 0, 1)
+        bb.write_method_6(1 if entity.get("untargetable", False) else 0, 1)
 
         bb.write_method_739(entity.get("render_depth_offset", 0))
 
         # used to set the current entity's moving speed if he has any
         speed = entity.get("behavior_speed", 0)
         if speed > 0:
-            bb.write_bits(1, 1)
+            bb.write_method_6(1, 1)
             bb.write_method_4(int(speed * LinkUpdater.VELOCITY_INFLATE))
         else:
-            bb.write_bits(0, 1)
+            bb.write_method_6(0, 1)
 
     for key in ("Linked_Mission", "DramaAnim", "SleepAnim"):
         val = entity.get(key, "")
-        bb.write_bits(1 if val else 0, 1)
+        bb.write_method_6(1 if val else 0, 1)
         if val:
             bb.write_method_13(val)
 
     # links this entity to the summoners ID
     summoner_id = entity.get("summonerId", 0)
     if summoner_id:
-        bb.write_bits(1, 1)
+        bb.write_method_6(1, 1)
         bb.write_method_4(summoner_id)
         if bb.debug:
             bb.debug_log.append(f"summonerId = {summoner_id}")
     else:
-        bb.write_bits(0, 1)
+        bb.write_method_6(0, 1)
 
     # 8) power type
     power_id = entity.get("power_id", 0)
 
     if power_id > 0:
-        bb.write_bits(1, 1)  # flag: has PowerType
+        bb.write_method_6(1, 1)  # flag: has PowerType
         bb.write_method_4(power_id)  # the index into class_14.powerTypes
         if bb.debug:
             bb.debug_log.append(f"powerTypeID = {power_id}")
     else:
-        bb.write_bits(0, 1)  # flag: no PowerType
+        bb.write_method_6(0, 1)  # flag: no PowerType
 
     # 9) entity state
     bb.write_method_6(entity.get("entState", 0), Entity.const_316)
 
     # 10) facing left
-    bb.write_bits(1 if entity.get("facing_left", False) else 0, 1)
+    bb.write_method_6(1 if entity.get("facing_left", False) else 0, 1)
 
 
     if entity.get('is_player', False):
@@ -272,7 +272,7 @@ def Send_Entity_Data(entity: Dict[str, Any]) -> bytes:
             bb.debug_log.append(f"Talent_id={class_id}")
 
         # we are not sending any Talent Data
-        bb.write_bits( 0, 1)
+        bb.write_method_6( 0, 1)
 
         #TODO...
         # this will crash the game not sure why the game seems to read the bitstream properly
@@ -281,7 +281,7 @@ def Send_Entity_Data(entity: Dict[str, Any]) -> bytes:
         # 5f) Talent Nodes / Upgrades
         talents = entity.get("talents", [])
         has_talents = any(t for t in talents if t)  # at least one slot filled
-        bb.write_bits(1 if has_talents else 0, 1)
+        bb.write_method_6(1 if has_talents else 0, 1)
 
         if has_talents:
             for slot in range(NUM_TALENT_SLOTS):  # always 27 slots
@@ -289,16 +289,16 @@ def Send_Entity_Data(entity: Dict[str, Any]) -> bytes:
                 if t and t.get("nodeID", 0) > 0 and t.get("points", 0) > 0:
                     node_id = t["nodeID"]
                     points = t["points"]
-                    bb.write_bits(1, 1)  # slot filled
+                    bb.write_method_6(1, 1)  # slot filled
                     bb.write_method_6(node_id, CLASS_118_CONST_127)  # 6 bits for nodeID
                     bb.write_method_6(points - 1, method_277(slot))  # N bits for points
 
                 else:
-                    bb.write_bits(0, 1)  # empty slot
+                    bb.write_method_6(0, 1)  # empty slot
         """
 
     else:
-        bb.write_bits(0, 1)
+        bb.write_method_6(0, 1)
 
 
     # 11) HP delta
@@ -319,7 +319,7 @@ def Send_Entity_Data(entity: Dict[str, Any]) -> bytes:
         bb.write_method_4(buff.get("param4", 0))
 
         extra = buff.get("extra_data", [])
-        bb.write_bits(1 if extra else 0, 1)
+        bb.write_method_6(1 if extra else 0, 1)
         if extra:
             bb.write_method_4(len(extra))
             for ed in extra:

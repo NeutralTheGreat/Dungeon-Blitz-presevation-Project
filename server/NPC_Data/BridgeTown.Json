@@ -10,7 +10,7 @@
       "untargetable": false,
       "render_depth_offset": -15,
       "behavior_speed": 0.0,
-      "Linked_Mission": "",
+      "Linked_Mission": "NPCTraveller",
       "DramaAnim": "",
       "SleepAnim": "",
       "summonerId": 0,

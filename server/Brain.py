@@ -2,7 +2,7 @@
 import time
 import struct
 from typing import Dict, Tuple, Optional, List
-from BitUtils import BitBuffer
+from BitBuffer import BitBuffer
 
 AGGRO_RADIUS = 250          # match client
 LEASH_DISTANCE = 600        # simple leash
@@ -64,7 +64,7 @@ def _write_method_24(bb, val: int):
     # convert to unsigned 24-bit two's complement
     if val < 0:
         val = (1 << 24) + val
-    bb.write_bits(val, 24)
+    bb.write_method_6(val, 24)
 
 def _build_pkt_0x07(entity_id: int,
                     delta_x: int, delta_y: int, delta_vx: int,
@@ -85,14 +85,14 @@ def _build_pkt_0x07(entity_id: int,
 
     # 3) state & flags
     bb.write_method_6(ent_state, _EntityConsts.const_316)
-    bb.write_bits(1 if flags.get('b_left') else 0, 1)
-    bb.write_bits(1 if flags.get('b_running') else 0, 1)
-    bb.write_bits(1 if flags.get('b_jumping') else 0, 1)
-    bb.write_bits(1 if flags.get('b_dropping') else 0, 1)
-    bb.write_bits(1 if flags.get('b_backpedal') else 0, 1)
+    bb.write_method_6(1 if flags.get('b_left') else 0, 1)
+    bb.write_method_6(1 if flags.get('b_running') else 0, 1)
+    bb.write_method_6(1 if flags.get('b_jumping') else 0, 1)
+    bb.write_method_6(1 if flags.get('b_dropping') else 0, 1)
+    bb.write_method_6(1 if flags.get('b_backpedal') else 0, 1)
 
     # 4) airborne & vy
-    bb.write_bits(1 if airborne else 0, 1)
+    bb.write_method_6(1 if airborne else 0, 1)
     if airborne:
         _write_method_24(bb, velocity_y)
 

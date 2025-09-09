@@ -6,7 +6,7 @@ import struct
 import inspect
 import threading
 import time
-from BitUtils import BitBuffer
+from BitBuffer import BitBuffer
 from entity import Send_Entity_Data
 
 app = Flask(__name__)

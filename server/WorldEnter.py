@@ -1,7 +1,7 @@
 # WorldEnter.py
 from typing import Dict
 
-from BitUtils import BitBuffer
+from BitBuffer import BitBuffer
 import struct
 import time
 from constants import (
@@ -59,14 +59,14 @@ def Player_Data_Packet(char: dict,
     buf.write_method_4(bonus_levels)  # _loc5_
 
     # ──────────────(Customization)──────────────
-    buf.write_utf_string(char.get("name", "") or "")
+    buf.write_method_13(char.get("name", "") or "")
     buf.write_method_11(1, 1)  # hasCustomization
-    buf.write_utf_string(char.get("class", "") or "")
-    buf.write_utf_string(char.get("gender", "") or "")
-    buf.write_utf_string(char.get("headSet", "") or "")
-    buf.write_utf_string(char.get("hairSet", "") or "")
-    buf.write_utf_string(char.get("mouthSet", "") or "")
-    buf.write_utf_string(char.get("faceSet", "") or "")
+    buf.write_method_13(char.get("class", "") or "")
+    buf.write_method_13(char.get("gender", "") or "")
+    buf.write_method_13(char.get("headSet", "") or "")
+    buf.write_method_13(char.get("hairSet", "") or "")
+    buf.write_method_13(char.get("mouthSet", "") or "")
+    buf.write_method_13(char.get("faceSet", "") or "")
     buf.write_method_11(char.get("hairColor", 0), 24)
     buf.write_method_11(char.get("skinColor", 0), 24)
     buf.write_method_11(char.get("shirtColor", 0), 24)
@@ -129,7 +129,7 @@ def Player_Data_Packet(char: dict,
     if send_extended:
         print("[DEBUG] Sending extended data block")
         # 5a) Signal “yes, Extended player data follows”
-        buf.write_bits(1, 1)
+        buf.write_method_6(1, 1)
 
     # ──────────────(Extended data block)──────────────
 
@@ -168,7 +168,7 @@ def Player_Data_Packet(char: dict,
         gear_sets = char.get("gearSets", [])
         buf.write_method_6(len(gear_sets), GearType.const_348)
         for gs in gear_sets:
-            buf.write_utf_string(gs.get("name", ""))
+            buf.write_method_13(gs.get("name", ""))
             slots = gs.get("slots", [])
             slots = (slots + [0] * 6)[:6]  # pad/truncate to 6
             for gear_id in slots:
@@ -322,7 +322,7 @@ def Player_Data_Packet(char: dict,
         # 2) Friend entries
         for friend in friends:
             # var_207 → account name
-            buf.write_utf_string(friend["name"])
+            buf.write_method_13(friend["name"])
 
             # var_276 → isRequest
             buf.write_method_11(1 if friend.get("isRequest", False) else 0, 1)
@@ -336,7 +336,7 @@ def Player_Data_Packet(char: dict,
                 custom_name = friend.get("name", "") != friend["name"]
                 buf.write_method_11(1 if custom_name else 0, 1)
                 if custom_name:
-                    buf.write_utf_string(friend["name"])
+                    buf.write_method_13(friend["name"])
 
                 # Class + Level
                 class_id = CLASS_NAME_TO_ID.get(friend.get("className", ""), 0)
@@ -452,7 +452,7 @@ def Player_Data_Packet(char: dict,
 
         if has_tr:
             # write the 2‑bit classIndex (use the same const the client does)
-            buf.write_bits(tr.get("classIndex", 0), class_66.const_571)
+            buf.write_method_6(tr.get("classIndex", 0), class_66.const_571)
             # then the 32‑bit ReadyTime
             buf.write_method_4(tr.get("ReadyTime", 0))
 
@@ -512,16 +512,16 @@ def Player_Data_Packet(char: dict,
                 ["", "", "", "", 0]
         )
 
-        buf.write_utf_string(icon)  # a_NewsGoldIcon,
-        buf.write_utf_string(url)  # e.g. "http://www.dungeonblitz.com/"
-        buf.write_utf_string(body)  # "Double Gold Event"
-        buf.write_utf_string(tooltip)  # "While this event is in place ..."
+        buf.write_method_13(icon)  # a_NewsGoldIcon,
+        buf.write_method_13(url)  # e.g. "http://www.dungeonblitz.com/"
+        buf.write_method_13(body)  # "Double Gold Event"
+        buf.write_method_13(tooltip)  # "While this event is in place ..."
         buf.write_method_4(start_ts)  # Epoch timestamp
 
     # This is where the extended data branch stops
     else:
         print("[DEBUG] Skipping extended data block")
-        buf.write_bits(0, 1)
+        buf.write_method_6(0, 1)
 
 
     # ──────────────(MasterClass)──────────────
@@ -579,14 +579,14 @@ def Player_Data_Packet(char: dict,
     buf.write_method_11(1 if in_guild else 0, 1)
 
     if in_guild:
-       buf.write_utf_string(guild["name"])
+       buf.write_method_13(guild["name"])
        buf.write_method_6(guild.get("rank", 0), 3)  # your own rank in guild
 
        members = guild.get("onlineMembers", [])
        buf.write_method_4(len(members))
 
        for m in members:
-           buf.write_utf_string(m["name"])  # name
+           buf.write_method_13(m["name"])  # name
            buf.write_method_6(m["classID"],
                               Entity.const_244)  # class → client maps via Entity.method_244()
            buf.write_method_6(m["level"], Entity.MAX_CHAR_LEVEL_BITS)
@@ -675,7 +675,7 @@ def build_enter_world_packet(
     buf.write_method_4(old_level_id)
 
     # 3) old SWF path (_loc6_)
-    buf.write_utf_string(old_swf)
+    buf.write_method_13(old_swf)
 
     # 4) old coords? + values (_loc8_, _loc2_, _loc3_)
     buf.write_method_11(1 if has_old_coord else 0, 1)
@@ -684,22 +684,22 @@ def build_enter_world_packet(
         buf.write_method_4(old_y)
 
     # 5) host (_loc9_)
-    buf.write_utf_string(host)
+    buf.write_method_13(host)
 
     # 6) port (_loc10_)
     buf.write_method_4(port)
 
     # 7) new SWF path (_loc11_)
-    buf.write_utf_string(new_level_swf)
+    buf.write_method_13(new_level_swf)
 
     # 8) new_map_lvl, new_base_lvl (_loc12_, _loc13_, 6 bits each)
     buf.write_method_6(new_map_lvl, MAX_CHAR_LEVEL_BITS)
     buf.write_method_6(new_base_lvl, MAX_CHAR_LEVEL_BITS)
 
     # 9) new strings (_loc14_, _loc15_, _loc16_)
-    buf.write_utf_string(new_internal)
-    buf.write_utf_string(new_moment)
-    buf.write_utf_string(new_alter)
+    buf.write_method_13(new_internal)
+    buf.write_method_13(new_moment)
+    buf.write_method_13(new_alter)
 
     # 10) new_is_dungeonanced flag (_loc17_)
     buf.write_method_11(1 if new_is_dungeon else 0, 1)

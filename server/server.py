@@ -12,7 +12,7 @@ from Character import (
     load_characters,
     save_characters, get_inventory_gears, build_level_gears_packet, load_class_template
 )
-from BitUtils import BitBuffer
+from BitBuffer import BitBuffer
 from Commands import handle_hotbar_packet, handle_masterclass_packet, handle_gear_packet, \
     handle_apply_dyes, handle_rune_packet, handle_change_look, handle_create_gearset, handle_name_gearset, \
     handle_apply_gearset, handle_update_equipment, magic_forge_packet, collect_forge_charm, start_forge_packet, \
@@ -31,6 +31,7 @@ from WorldEnter import build_enter_world_packet, Player_Data_Packet
 #from admin_panel import run_admin_panel
 from bitreader import BitReader
 from PolicyServer import start_policy_server
+from constants import EntType
 from static_server import start_static_server
 from entity import Send_Entity_Data, load_npc_data_for_level
 from level_config import DOOR_MAP, LEVEL_CONFIG, get_spawn_coordinates
@@ -230,7 +231,7 @@ def handle_client(session: ClientSession):
 
             elif pkt == 0x13:  # Done
                 br = BitReader(data[8:], debug=True)
-                email = br.read_string().strip().lower()
+                email = br.read_method_26().strip().lower()
                 session.user_id = get_or_create_user_id(email)
                 session.char_list = load_characters(session.user_id)
                 session.authenticated = True
@@ -239,11 +240,11 @@ def handle_client(session: ClientSession):
             elif pkt == 0x14:  # Done
                 br = BitReader(data[4:], debug=True)
                 try:
-                    client_facebook_id = br.read_string()  # Facebook platform ID
-                    client_kongregate_id = br.read_string()  # Kongregate platform ID
-                    email = br.read_string().strip().lower()  # Primary login identifier
-                    password = br.read_string()  # Password or session token
-                    legacy_auth_key = br.read_string()  # Embed auth key / API key
+                    client_facebook_id = br.read_method_26()  # Facebook platform ID
+                    client_kongregate_id = br.read_method_26()  # Kongregate platform ID
+                    email = br.read_method_26().strip().lower()  # Primary login identifier
+                    password = br.read_method_26()  # Password or session token
+                    legacy_auth_key = br.read_method_26()  # Embed auth key / API key
                 except Exception as e:
                     print(f"[{session.addr}] [PKT0x14] Error parsing packet: {e}, raw payload={data[4:].hex()}")
                     continue
@@ -273,17 +274,17 @@ def handle_client(session: ClientSession):
                     continue
                 br = BitReader(data[4:], debug=True)
                 try:
-                    name = br.read_string()  # character name
-                    class_name = br.read_string()
-                    gender = br.read_string()
-                    head = br.read_string()
-                    hair = br.read_string()
-                    mouth = br.read_string()
-                    face = br.read_string()
-                    hair_color = br.read_bits(24)
-                    skin_color = br.read_bits(24)
-                    shirt_color = br.read_bits(24)
-                    pant_color = br.read_bits(24)
+                    name = br.read_method_26()  # character name
+                    class_name = br.read_method_26()
+                    gender = br.read_method_26()
+                    head = br.read_method_26()
+                    hair = br.read_method_26()
+                    mouth = br.read_method_26()
+                    face = br.read_method_26()
+                    hair_color = br.read_method_20(EntType.CHAR_COLOR_BITSTOSEND)
+                    skin_color = br.read_method_20(EntType.CHAR_COLOR_BITSTOSEND)
+                    shirt_color = br.read_method_20(EntType.CHAR_COLOR_BITSTOSEND)
+                    pant_color = br.read_method_20(EntType.CHAR_COLOR_BITSTOSEND)
                     print(f"[{session.addr}] [PKT0x17] Parsed character creation: "
                           f"name={name}, class={class_name}, gender={gender}")
                 except Exception as e:
@@ -332,7 +333,7 @@ def handle_client(session: ClientSession):
 
 
             elif pkt == 0x16:
-                name = BitReader(data[4:]).read_string()
+                name = BitReader(data[4:]).read_method_26()
                 for c in session.char_list:
                     if c["name"] == name:
                         session.current_character = name
@@ -657,7 +658,7 @@ def handle_client(session: ClientSession):
             #elif pkt == 0x1E:  # MASTER_CLIENT (dev mode)
                 #rd = BitReader(data[4:], debug=False)
                 #map_id = rd.read_method_9()
-                # = rd.read_bit() == 1
+                # = rd.read_method_15() == 1
                 #print(f"[DEBUG] MASTER_CLIENT: map_id={map_id}, first={is_first}")
                 # Always use dummy char in dev flow
                 #session.current_level = "NewbieRoad"  # or use DevSettings.standAloneMapInternalName if you parse it

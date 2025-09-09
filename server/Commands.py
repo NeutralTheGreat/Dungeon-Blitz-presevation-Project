@@ -11,7 +11,7 @@ from bitreader import BitReader
 from constants import GearType, EntType, class_64, class_1, DyeType, class_118, method_277, \
     class_111, class_1_const_254, class_8, class_3, \
     get_ability_info, load_building_data, find_building_data, class_66, LinkUpdater, PowerType, Entity, Game, class_13
-from BitUtils import BitBuffer
+from BitBuffer import BitBuffer
 from constants import get_dye_color
 from level_config import SPAWN_POINTS, DOOR_MAP, LEVEL_CONFIG
 from scheduler import scheduler, _on_research_done_for, schedule_building_upgrade, _on_building_done_for, \
@@ -167,14 +167,14 @@ def handle_grant_reward(session, data, all_sessions):
         grantor_id    = br.read_method_9()
         target_id     = br.read_method_9()
 
-        flag_showXP   = bool(br.read_bit())
+        flag_showXP   = bool(br.read_method_15())
         xp_rate       = br.read_float()
 
-        flag_showGold = bool(br.read_bit())
+        flag_showGold = bool(br.read_method_15())
         gold_rate     = br.read_float()
 
-        flag_showHeal = bool(br.read_bit())
-        flag_showMana = bool(br.read_bit())
+        flag_showHeal = bool(br.read_method_15())
+        flag_showMana = bool(br.read_method_15())
 
         code_xpType   = br.read_method_9()
         code_goldType = br.read_method_9()
@@ -185,7 +185,7 @@ def handle_grant_reward(session, data, all_sessions):
         drop_x = br.read_method_24()   # signed 24-bit
         drop_y = br.read_method_24()   # signed 24-bit
 
-        has_extra     = bool(br.read_bit())
+        has_extra     = bool(br.read_method_15())
         extra_id      = br.read_method_9() if has_extra else None
 
     except Exception as e:
@@ -293,9 +293,9 @@ def handle_lockbox_reward(session):
     bb = BitBuffer()
     bb.write_method_6(PACK_ID, CAT_BITS)
     bb.write_method_6(idx, ID_BITS)
-    bb.write_bits(1 if needs_str else 0, 1)
+    bb.write_method_6(1 if needs_str else 0, 1)
     if needs_str:
-        bb.write_utf_string(name)
+        bb.write_method_13(name)
 
     payload = bb.to_bytes()
     packet = struct.pack(">HH", 0x108, len(payload)) + payload
@@ -330,12 +330,12 @@ def send_mastery_packet(session, entity_id):
     for i in range(total):
         if i in slot_map and slot_map[i].get("filled"):
             slot = slot_map[i]
-            bb.write_bits(1, 1)  # has this node
+            bb.write_method_6(1, 1)  # has this node
             bb.write_method_6(slot["nodeIdx"], class_118.const_127)
             width = method_277(i)  # exactly method_277(i)
-            bb.write_bits(slot["points"] - 1, width)
+            bb.write_method_6(slot["points"] - 1, width)
         else:
-            bb.write_bits(0, 1)
+            bb.write_method_6(0, 1)
 
     payload = bb.to_bytes()
     pkt = struct.pack(">HH", 0xC1, len(payload)) + payload
@@ -414,9 +414,9 @@ def handle_gear_packet(session, raw_data):
     br = BitReader(payload)
 
     entity_id  = br.read_method_4()
-    prefix     = br.read_bits(3)
+    prefix     = br.read_method_20(3)
     nbits      = 2 * (prefix + 1)
-    slot1      = br.read_bits(nbits)
+    slot1      = br.read_method_20(nbits)
     gear_id    = br.read_method_6(GearType.GEARTYPE_BITSTOSEND)
     slot       = slot1 - 1
 
@@ -620,13 +620,13 @@ def handle_change_look(session, raw_data, all_sessions):
     payload = raw_data[4:]  # skip type+length
     br = BitReader(payload)
 
-    head       = br.read_string()
-    hair       = br.read_string()
-    mouth      = br.read_string()
-    face       = br.read_string()
-    gender     = br.read_string()
-    hair_color = br.read_bits(EntType.CHAR_COLOR_BITSTOSEND)
-    skin_color = br.read_bits(EntType.CHAR_COLOR_BITSTOSEND)
+    head       = br.read_method_26()
+    hair       = br.read_method_26()
+    mouth      = br.read_method_26()
+    face       = br.read_method_26()
+    gender     = br.read_method_26()
+    hair_color = br.read_method_20(EntType.CHAR_COLOR_BITSTOSEND)
+    skin_color = br.read_method_20(EntType.CHAR_COLOR_BITSTOSEND)
 
     entity_id = session.clientEntID
 
@@ -689,7 +689,7 @@ def handle_create_gearset(session, raw_data):
     """
     payload = raw_data[4:]
     br = BitReader(payload)
-    slot_idx = br.read_bits(GearType.const_348)
+    slot_idx = br.read_method_20(GearType.const_348)
     print(f"[GearSet] Creating new slot #{slot_idx} for {session.current_character}")
 
     # update in-memory save
@@ -730,16 +730,16 @@ def handle_name_gearset(session, raw_data):
     payload = raw_data[4:]
     print(f"[Debug] Payload: {payload.hex()}")
     br = BitReader(payload)
-    slot_idx = br.read_bits(3)
+    slot_idx = br.read_method_20(3)
     print(f"[Debug] slot_idx: {slot_idx}, bit_index: {br.bit_index}")
-    length = br.read_bits(16)
+    length = br.read_method_20(16)
     print(f"[Debug] String length: {length}")
     if length > br.remaining_bits() // 8:
         print(f"[Error] Invalid string length: {length}, remaining bytes: {br.remaining_bits() // 8}")
         return
     result_bytes = bytearray()
     for _ in range(length):
-        result_bytes.append(br.read_bits(8))
+        result_bytes.append(br.read_method_20(8))
     try:
         name = result_bytes.decode('utf-8')
     except UnicodeDecodeError:
@@ -779,7 +779,7 @@ def handle_apply_gearset(session, raw_data):
     """
     payload = raw_data[4:]
     br = BitReader(payload)
-    slot_idx = br.read_bits(GearType.const_348)
+    slot_idx = br.read_method_20(GearType.const_348)
     print(f"[GearSet] Assigning equipped gears to gearset #{slot_idx} for {session.current_character}")
 
     # Update in-memory save
@@ -844,7 +844,7 @@ def handle_update_equipment(session, raw_data):
             if br.remaining_bits() < 1:
                 print(f"[Error] Not enough bits to read slot {slot} changed flag")
                 return
-            changed = br.read_bits(1)
+            changed = br.read_method_20(1)
             if changed:
                 if br.remaining_bits() < GearType.GEARTYPE_BITSTOSEND:
                     print(f"[Error] Not enough bits to read gear ID for slot {slot}")
@@ -1003,19 +1003,19 @@ def start_forge_packet(session, data):
     br = BitReader(payload)
 
     # 1) Read primary gem ID
-    primary = br.read_bits(class_1_const_254)
+    primary = br.read_method_20(class_1_const_254)
     print(f"[{session.addr}] Forge start: primary gemID={primary}")
 
     # 2) Read materials list
     materials_used = {}
-    while br.read_bit():  # method_15(true)
-        mat_id = br.read_bits(class_8.const_658)
-        count = br.read_bits(class_8.const_731)
+    while br.read_method_15():  # method_15(true)
+        mat_id = br.read_method_20(class_8.const_658)
+        count = br.read_method_20(class_8.const_731)
         materials_used[mat_id] = count
     print(f"[{session.addr}] Forge materials: {materials_used}")
 
     # 3) Read consumable flags (4 total)
-    consumable_flags = [br.read_bit() for _ in range(4)]
+    consumable_flags = [br.read_method_15() for _ in range(4)]
     print(f"[{session.addr}] Forge consumables flags: {consumable_flags}")
 
     # 4) Locate the character dict in session.char_list
@@ -1161,7 +1161,7 @@ def use_forge_xp_consumable(session, data):
     br = BitReader(payload)
 
     # Read consumableID
-    cid = br.read_bits(class_3.const_69)
+    cid = br.read_method_20(class_3.const_69)
     print(f"[{session.addr}] Forge XP consumable used: consumableID={cid}")
 
     # Get character
@@ -1298,9 +1298,9 @@ def Start_Skill_Research(session, data, conn):
     br = BitReader(data[4:], debug=True)
     try:
         # --- 1) Parse the incoming 0xBE packet ---
-        ability_id = br.read_bits(7)
-        rank       = br.read_bits(4)
-        is_instant = bool(br.read_bit())
+        ability_id = br.read_method_20(7)
+        rank       = br.read_method_20(4)
+        is_instant = bool(br.read_method_15())
         print(f"[{session.addr}] [PKT0xBE] Parsed skill upgrade: "
               f"abilityID={ability_id}, rank={rank}, isInstant={is_instant}")
 
@@ -1353,10 +1353,10 @@ def Start_Skill_Research(session, data, conn):
 
         # --- 8) Immediate “in progress” reply (0xBF) ---
         bb = BitBuffer()
-        bb.insert_bits(1, 16)            # placeholder building ID
-        bb.insert_bits(2, 8)             # status = in progress
-        bb.insert_bits(ability_id, 7)
-        bb.insert_bits(rank, 4)
+        bb.write_method_6(1, 16)            # placeholder building ID
+        bb.write_method_6(2, 8)             # status = in progress
+        bb.write_method_6(ability_id, 7)
+        bb.write_method_6(rank, 4)
         payload = bb.to_bytes()
         conn.sendall(struct.pack(">HH", 0xBF, len(payload)) + payload)
         print(f"[{session.addr}] [PKT0xBE] Sent 0xBF confirmation len={len(payload)}")
@@ -1495,7 +1495,7 @@ def Skill_SpeedUp(session, data):
 
     # Send 0xBF confirmation packet
     bb = BitBuffer()
-    bb.insert_bits(research["abilityID"], 7)
+    bb.write_method_6(research["abilityID"], 7)
     payload = bb.to_bytes()
 
     session.conn.sendall(struct.pack(">HH", 0xBF, len(payload)) + payload)
@@ -1514,9 +1514,9 @@ def handle_building_upgrade(session, data):
             raise ValueError("Malformed 0xD7 payload")
 
         br = BitReader(payload, debug=True)
-        building_id = br.read_bits(5)
-        client_rank = br.read_bits(5)
-        is_instant  = bool(br.read_bit())
+        building_id = br.read_method_20(5)
+        client_rank = br.read_method_20(5)
+        is_instant  = bool(br.read_method_15())
 
         rank = client_rank + 1
 
@@ -1693,8 +1693,8 @@ def handle_train_talent_point(session, data):
 
     # 1) Read master‐class index (2 bits) and instant flag (1 bit)
     try:
-        class_index = br.read_bits(2)
-        is_instant  = bool(br.read_bit())
+        class_index = br.read_method_20(2)
+        is_instant  = bool(br.read_method_15())
     except Exception as e:
         print(f"[{session.addr}] [PKT0xD4] parse error: {e}")
         return
@@ -1810,8 +1810,8 @@ def handle_talent_speedup(session, data):
     try:
         bb = BitBuffer()
         # format: 2-bit class index, 1-bit flag (ignored by client)
-        bb.insert_bits(class_idx, class_66.const_571)
-        bb.insert_bits(1, 1)
+        bb.write_method_6(class_idx, class_66.const_571)
+        bb.write_method_6(1, 1)
         payload = bb.to_bytes()
         session.conn.sendall(struct.pack(">HH", 0xD5, len(payload)) + payload)
         print(f"[{session.addr}] [0xE0] sent 0xD5 to complete talent research")
@@ -1828,7 +1828,7 @@ def handle_talent_claim(session, data):
     payload = data[4:]
     br = BitReader(payload, debug=True)
     try:
-        class_idx = br.read_bits(class_66.const_571)
+        class_idx = br.read_method_20(class_66.const_571)
     except Exception:
         # No bits in payload: grab from pending research
         char = next((c for c in session.char_list
@@ -1912,7 +1912,7 @@ def handle_change_offset_y(session, data):
 def handle_request_respawn(session, data, all_sessions):
     br = BitReader(data[4:], debug=False)
     try:
-        use_potion = bool(br.read_bit())
+        use_potion = bool(br.read_method_15())
     except:
         return
 
@@ -2018,17 +2018,17 @@ def handle_apply_dyes(session, payload):
         entity_id = br.read_method_4()
         dyes_by_slot = {}
         for slot in range(1, EntType.MAX_SLOTS):
-            has_pair = br.read_bits(1)
+            has_pair = br.read_method_20(1)
             if has_pair:
-                d1 = br.read_bits(DyeType.BITS)
-                d2 = br.read_bits(DyeType.BITS)
+                d1 = br.read_method_20(DyeType.BITS)
+                d2 = br.read_method_20(DyeType.BITS)
                 dyes_by_slot[slot - 1] = (d1, d2)
 
         # This is NOT a preview flag. It's the "use idols" boolean from OnApplyDyes(..., param2)
-        pay_with_idols = bool(br.read_bits(1))
+        pay_with_idols = bool(br.read_method_20(1))
 
-        primary_dye = br.read_bits(DyeType.BITS) if br.read_bits(1) else None
-        secondary_dye = br.read_bits(DyeType.BITS) if br.read_bits(1) else None
+        primary_dye = br.read_method_20(DyeType.BITS) if br.read_method_20(1) else None
+        secondary_dye = br.read_method_20(DyeType.BITS) if br.read_method_20(1) else None
     except Exception as e:
         print(f"[Dyes] ERROR parsing dye packet: {e}")
         return
@@ -2160,25 +2160,25 @@ def send_dye_sync_packet(session, entity_id, dyes_by_slot, shirt_color=None, pan
             gear = eq[slot - 1] if slot - 1 < len(eq) else None
             if gear and "colors" in gear:
                 d1, d2 = gear["colors"]
-                bb.write_bits(1, 1)  # has dye pair
+                bb.write_method_6(1, 1)  # has dye pair
                 bb.write_method_6(d1, DyeType.BITS)
                 bb.write_method_6(d2, DyeType.BITS)
             else:
-                bb.write_bits(0, 1)  # no dye pair
+                bb.write_method_6(0, 1)  # no dye pair
 
         # Write shirt color
         if shirt_color is not None:
-            bb.write_bits(1, 1)
+            bb.write_method_6(1, 1)
             bb.write_method_6(shirt_color, EntType.CHAR_COLOR_BITSTOSEND)
         else:
-            bb.write_bits(0, 1)
+            bb.write_method_6(0, 1)
 
         # Write pant color
         if pant_color is not None:
-            bb.write_bits(1, 1)
+            bb.write_method_6(1, 1)
             bb.write_method_6(pant_color, EntType.CHAR_COLOR_BITSTOSEND)
         else:
-            bb.write_bits(0, 1)
+            bb.write_method_6(0, 1)
 
         payload = bb.to_bytes()
         pkt = struct.pack(">HH", 0x111, len(payload)) + payload
@@ -2193,7 +2193,7 @@ def PaperDoll_Request(session, data, conn):
     finds the character in session.char_list, and sends back
     a 0x1A response with their paperdoll or empty if not found.
     """
-    name = BitReader(data[4:]).read_string()
+    name = BitReader(data[4:]).read_method_26()
     #print(f"[{session.addr}] [PKT0x19] Request for paperdoll: {name}")
 
     for c in session.char_list:
@@ -2420,7 +2420,7 @@ def handle_respawn_ack(session, data, all_sessions):
     try:
         entity_id = br.read_method_9()
         spawn_pos = br.read_method_24()
-        used_potion = bool(br.read_bit())
+        used_potion = bool(br.read_method_15())
     except Exception as e:
         print(f"[{session.addr}] [PKT82] Parse error: {e}")
         return
@@ -2613,7 +2613,7 @@ def handle_add_buff(session, data, all_sessions):
         param6     = br.read_method_9()
 
         # 3) Optional Vector.<class_140>
-        has_vector = bool(br.read_bit())
+        has_vector = bool(br.read_method_15())
         vector     = []
         if has_vector:
             length = br.read_method_9()
@@ -2678,7 +2678,7 @@ def handle_projectile_explode(session, data, all_sessions):
         y = br.read_method_24()
 
         # 4) Read the final flag (e.g. “spawn splatter”)
-        flag = bool(br.read_bit())
+        flag = bool(br.read_method_15())
 
         # 5) Log for verification
         props = {
@@ -2728,15 +2728,15 @@ def handle_power_hit(session, data, all_sessions):
         power_id  = br.read_method_9()   # param2.powerID
 
         # 5) Optional param5 (var-int)
-        has_p5    = bool(br.read_bit())
+        has_p5    = bool(br.read_method_15())
         param5    = br.read_method_9() if has_p5 else 0
 
         # 6) Optional param6 (var-int)
-        has_p6    = bool(br.read_bit())
+        has_p6    = bool(br.read_method_15())
         param6    = br.read_method_9() if has_p6 else 0
 
         # 7) Final boolean flag (crit? or similar)
-        param7    = bool(br.read_bit())
+        param7    = bool(br.read_method_15())
 
         # 8) Log what we got
         props = {
@@ -2775,8 +2775,8 @@ def handle_power_cast(session, data, all_sessions):
         power_id = br.read_method_9()
 
         # ← CORRECTED TARGET‐POINT HANDSHAKE
-        _ = br.read_bit()                        # discard hasTargetEntity
-        has_target_pos = bool(br.read_bit())     # var_2846: does this power type support coords?
+        _ = br.read_method_15()                        # discard hasTargetEntity
+        has_target_pos = bool(br.read_method_15())     # var_2846: does this power type support coords?
         target_pt = None
         if has_target_pos:
             target_x = br.read_method_24()
@@ -2784,29 +2784,29 @@ def handle_power_cast(session, data, all_sessions):
             target_pt = (target_x, target_y)
 
         # projectile
-        has_proj = bool(br.read_bit())
+        has_proj = bool(br.read_method_15())
         proj_id  = br.read_method_9() if has_proj else None
 
         # charged flag
-        is_charged = bool(br.read_bit())
+        is_charged = bool(br.read_method_15())
 
         # melee‐combo / var_674 branch
-        has_extra = bool(br.read_bit())
+        has_extra = bool(br.read_method_15())
         secondary_id = tertiary_id = None
         if has_extra:
-            is_secondary = bool(br.read_bit())
+            is_secondary = bool(br.read_method_15())
             if is_secondary:
                 secondary_id = br.read_method_9()
             else:
                 tertiary_id = br.read_method_9()
 
         # cooldown & mana
-        has_flags = bool(br.read_bit())
+        has_flags = bool(br.read_method_15())
         cooldown_tick = mana_cost = None
         if has_flags:
-            if bool(br.read_bit()):
+            if bool(br.read_method_15()):
                 cooldown_tick = br.read_method_9()
-            if bool(br.read_bit()):
+            if bool(br.read_method_15()):
                 MANA_BITS = PowerType.const_423
                 mana_cost = br.read_method_6(MANA_BITS)
 
@@ -2845,7 +2845,7 @@ def handle_linkupdater(session, data, all_sessions):
     br = BitReader(payload, debug=False)
     try:
         client_time = br.read_method_24()
-        is_desync   = bool(br.read_bit())
+        is_desync   = bool(br.read_method_15())
         server_time = br.read_method_24()
 
         # Update our session’s clock‐sync info
@@ -2887,38 +2887,38 @@ def handle_entity_full_update(session, data, all_sessions):
         # Use correct bit width for team (matches client’s Entity.TEAM_BITS)
         TEAM_BITS = Entity.TEAM_BITS # adjust if client uses different value
         team       = br.read_method_6(TEAM_BITS)
-        is_player  = bool(br.read_bit())
+        is_player  = bool(br.read_method_15())
         # y_offset uses AS3 method_706 → read via signed prefix encoding
         y_offset   = br.read_method_739()
 
         # Read optional cue data
-        has_cue = bool(br.read_bit())
+        has_cue = bool(br.read_method_15())
         cue_data = {}
         if has_cue:
-            if bool(br.read_bit()):
+            if bool(br.read_method_15()):
                 cue_data['character_name'] = br.read_method_13()
-            if bool(br.read_bit()):
+            if bool(br.read_method_15()):
                 cue_data['DramaAnim'] = br.read_method_13()
-            if bool(br.read_bit()):
+            if bool(br.read_method_15()):
                 cue_data['SleepAnim'] = br.read_method_13()
 
         # Optional summoner
-        has_summoner = bool(br.read_bit())
+        has_summoner = bool(br.read_method_15())
         summoner_id = br.read_method_9() if has_summoner else None
 
         # Optional power
-        has_power = bool(br.read_bit())
+        has_power = bool(br.read_method_15())
         power_id  = br.read_method_9() if has_power else None
 
         # State and flags
         # Use correct bit width for entity state (matches client’s Entity.const_316)
         STATE_BITS = Entity.const_316  # adjust to actual number of state bits
         ent_state = br.read_method_6(STATE_BITS)
-        b_left    = bool(br.read_bit())
-        b_running = bool(br.read_bit())
-        b_jumping = bool(br.read_bit())
-        b_dropping = bool(br.read_bit())
-        b_backpedal = bool(br.read_bit())
+        b_left    = bool(br.read_method_15())
+        b_running = bool(br.read_method_15())
+        b_jumping = bool(br.read_method_15())
+        b_dropping = bool(br.read_method_15())
+        b_backpedal = bool(br.read_method_15())
 
         # 1) Learn client's own entity ID
         if is_player and session.clientEntID is None:
@@ -2998,15 +2998,15 @@ def handle_entity_incremental_update(session, data, all_sessions):
         STATE_BITS = Entity.const_316
         ent_state = br.read_method_6(STATE_BITS)
         flags = {
-            'b_left':      bool(br.read_bit()),
-            'b_running':   bool(br.read_bit()),
-            'b_jumping':   bool(br.read_bit()),
-            'b_dropping':  bool(br.read_bit()),
-            'b_backpedal': bool(br.read_bit()),
+            'b_left':      bool(br.read_method_15()),
+            'b_running':   bool(br.read_method_15()),
+            'b_jumping':   bool(br.read_method_15()),
+            'b_dropping':  bool(br.read_method_15()),
+            'b_backpedal': bool(br.read_method_15()),
         }
 
         # 4) Airborne check
-        is_airborne = bool(br.read_bit())
+        is_airborne = bool(br.read_method_15())
         velocity_y = br.read_method_24() if is_airborne else 0
 
         # ────────────────────────────────────────────────────────────
@@ -3074,7 +3074,7 @@ def handle_start_skit(session, data, all_sessions):
 
     try:
         entity_id = br.read_method_9()
-        flag = bool(br.read_bit())
+        flag = bool(br.read_method_15())
         text = br.read_method_26()
     except Exception as e:
         print(f"[{session.addr}] [PKT0xC5] Error parsing packet: {e}")
@@ -3104,9 +3104,9 @@ def handle_hotbar_packet(session, raw_data):
     slot = 1
     updates = {}   # slot_index (0‑based) -> new skill_id
     while reader.remaining_bits() >= 1:
-        changed = reader.read_bits(1)
+        changed = reader.read_method_20(1)
         if changed:
-            skill_id = reader.read_bits(7)
+            skill_id = reader.read_method_20(7)
             updates[slot - 1] = skill_id
         slot += 1
 

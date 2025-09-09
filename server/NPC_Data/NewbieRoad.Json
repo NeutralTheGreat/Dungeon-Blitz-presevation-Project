@@ -81,7 +81,7 @@
       "untargetable": false,
       "render_depth_offset": -50,
       "behavior_speed": 0.0,
-      "Linked_Mission": "NR_Merchant01",
+      "Linked_Mission": "NR_Villager03",
       "DramaAnim": "",
       "SleepAnim": "",
       "summonerId": 50,

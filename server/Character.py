@@ -4,7 +4,7 @@ import os
 import json
 import struct
 
-from BitUtils import BitBuffer
+from BitBuffer import BitBuffer
 from constants import GearType, GEARTYPE_BITS
 
 def load_class_template(class_name: str) -> dict:
@@ -144,17 +144,17 @@ def save_characters(user_id: str, char_list: list[dict]):
 
 def build_paperdoll_packet(character_dict):
     buf = BitBuffer(debug=True)  # Enable debug for tracing
-    buf.write_utf_string(character_dict["name"])
-    buf.write_utf_string(character_dict["class"])
-    buf.write_utf_string(character_dict["gender"])
-    buf.write_utf_string(character_dict["headSet"])
-    buf.write_utf_string(character_dict["hairSet"])
-    buf.write_utf_string(character_dict["mouthSet"])
-    buf.write_utf_string(character_dict["faceSet"])
-    buf.write_bits(character_dict["hairColor"], 24)
-    buf.write_bits(character_dict["skinColor"], 24)
-    buf.write_bits(character_dict["shirtColor"], 24)
-    buf.write_bits(character_dict["pantColor"], 24)
+    buf.write_method_13(character_dict["name"])
+    buf.write_method_13(character_dict["class"])
+    buf.write_method_13(character_dict["gender"])
+    buf.write_method_13(character_dict["headSet"])
+    buf.write_method_13(character_dict["hairSet"])
+    buf.write_method_13(character_dict["mouthSet"])
+    buf.write_method_13(character_dict["faceSet"])
+    buf.write_method_6(character_dict["hairColor"], 24)
+    buf.write_method_6(character_dict["skinColor"], 24)
+    buf.write_method_6(character_dict["shirtColor"], 24)
+    buf.write_method_6(character_dict["pantColor"], 24)
 
     # Add gear slots (slots 1 to 6, as slot 0 is skipped)
     cls = character_dict["class"].lower()
@@ -173,7 +173,7 @@ def build_paperdoll_packet(character_dict):
                 gear_id = 0
         else:
             gear_id = 0
-        buf.write_bits(gear_id, 11)  # GearType.GEARTYPE_BITSTOSEND = 11
+        buf.write_method_6(gear_id, 11)  # GearType.GEARTYPE_BITSTOSEND = 11
         if buf.debug:
             buf.debug_log.append(f"gear_slot_{i + 1}_gearID={gear_id}")
 
@@ -194,8 +194,8 @@ def build_login_character_list_bitpacked(characters):
     buf.write_method_393(char_count)
 
     for char in characters:
-        buf.write_utf_string(char["name"])
-        buf.write_utf_string(char["class"])
+        buf.write_method_13(char["name"])
+        buf.write_method_13(char["class"])
         buf.write_method_6(char["level"], 6)
 
     import struct

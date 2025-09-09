@@ -7,7 +7,7 @@ import tempfile
 from threading import Lock
 from uuid import uuid4
 
-from BitUtils import BitBuffer
+from BitBuffer import BitBuffer
 
 _ACCOUNTS_PATH = "Accounts.json"
 _SAVES_DIR     = "saves"
@@ -99,8 +99,8 @@ def build_popup_packet(message: str, disconnect: bool = False) -> bytes:
     Build a 0x1B packet with a message and disconnect flag.
     """
     buf = BitBuffer(debug=True)
-    buf.write_utf_string(message)
-    buf.write_bits(1 if disconnect else 0, 1)
+    buf.write_method_13(message)
+    buf.write_method_6(1 if disconnect else 0, 1)
     payload = buf.to_bytes()
     return struct.pack(">HH", 0x1B, len(payload)) + payload
 
