@@ -526,25 +526,29 @@ def Player_Data_Packet(char: dict,
 
     # ──────────────(MasterClass)──────────────
     selected = str(char.get("MasterClass", 0))
-    mastery_data = char.get("Mastery", {}).get(selected, {"classID": 0, "slots": []})
+    talent_tree = char.get("TalentTree", {}).get(str(selected), {"nodes": [None] * 27})
 
-    # Write the chosen classID & slots exactly as before:
-    buf.write_method_6(mastery_data["classID"], GAME_CONST_209)
+    # Write the chosen classID & tree
+    buf.write_method_6(int(selected), GAME_CONST_209)  # classID comes from key
     buf.write_method_11(1, 1)  # we always send a tree
+
+    nodes = talent_tree.get("nodes", [None] * NUM_TALENT_SLOTS)
+
     for i in range(NUM_TALENT_SLOTS):
-        slot = mastery_data["slots"][i] if i < len(mastery_data["slots"]) else {"filled": False}
-        if slot["filled"]:
+        node = nodes[i] or {"filled": False, "points": 0, "nodeID": i + 1}
+
+        if node.get("filled", False):
             buf.write_method_11(1, 1)  # presence bit
 
             # === NODE INDEX FIRST ===
-            buf.write_method_6(slot["nodeIdx"], CLASS_118_CONST_127)
+            node_id = node.get("nodeID", i + 1)  # use stored NodeID
+            buf.write_method_6(node_id, CLASS_118_CONST_127)
 
             # === POINTS-MINUS-ONE SECOND ===
             bits = SLOT_BIT_WIDTHS[i]
-            buf.write_method_6(slot["points"] - 1, bits)
+            buf.write_method_6(node["points"] - 1, bits)
         else:
             buf.write_method_11(0, 1)
-
 
     # ──────────────(Equipped Gears)──────────────
     equip = char.get("equippedGears", [])

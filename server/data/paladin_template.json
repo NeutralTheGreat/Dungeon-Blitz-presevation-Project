@@ -1,5 +1,5 @@
 {
-      "name": "Aenerroc",
+      "name": "Paladin Template",
       "class": "Paladin",
       "level": 20,
       "xp": 29116890,
@@ -8836,9 +8836,9 @@
         5
       ],
       "talentPoints": {
-        "1": 1,
-        "2": 1,
-        "3": 1
+        "1": 50,
+        "2": 50,
+        "3": 50
       },
       "magicForge": {
         "stats_by_building": {
@@ -8913,424 +8913,421 @@
         }
       ],
       "MasterClass": 4,
-      "Mastery": {
+      "TalentTree": {
         "4": {
-          "classID": 4,
-          "slots": [
+          "nodes": [
             {
-              "filled": true,
-              "points": 2,
-              "nodeIdx": 1
+              "nodeID": 2,
+              "points": 5,
+              "filled": true
             },
             {
-              "filled": true,
+              "nodeID": 3,
               "points": 2,
-              "nodeIdx": 2
+              "filled": true
             },
             {
-              "filled": true,
-              "points": 2,
-              "nodeIdx": 3
+              "nodeID": 1,
+              "points": 3,
+              "filled": true
             },
             {
-              "filled": true,
-              "points": 2,
-              "nodeIdx": 4
+              "nodeID": 6,
+              "points": 5,
+              "filled": true
             },
             {
-              "filled": true,
-              "points": 2,
-              "nodeIdx": 5
+              "nodeID": 5,
+              "points": 5,
+              "filled": true
             },
             {
-              "filled": true,
-              "points": 2,
-              "nodeIdx": 6
+              "nodeID": 4,
+              "points": 3,
+              "filled": true
             },
             {
-              "filled": true,
+              "nodeID": 8,
               "points": 2,
-              "nodeIdx": 7
+              "filled": true
             },
             {
-              "filled": true,
-              "points": 2,
-              "nodeIdx": 8
+              "nodeID": 7,
+              "points": 3,
+              "filled": true
             },
             {
-              "filled": true,
+              "nodeID": 9,
               "points": 2,
-              "nodeIdx": 9
+              "filled": true
             },
             {
-              "filled": true,
-              "points": 2,
-              "nodeIdx": 10
+              "nodeID": 11,
+              "points": 5,
+              "filled": true
             },
             {
-              "filled": true,
+              "nodeID": 12,
               "points": 2,
-              "nodeIdx": 11
+              "filled": true
             },
             {
-              "filled": true,
-              "points": 2,
-              "nodeIdx": 12
+              "nodeID": 10,
+              "points": 3,
+              "filled": true
             },
             {
-              "filled": true,
-              "points": 2,
-              "nodeIdx": 13
+              "nodeID": 15,
+              "points": 5,
+              "filled": true
             },
             {
-              "filled": true,
-              "points": 2,
-              "nodeIdx": 14
+              "nodeID": 14,
+              "points": 5,
+              "filled": true
             },
             {
-              "filled": true,
-              "points": 2,
-              "nodeIdx": 15
+              "nodeID": 13,
+              "points": 3,
+              "filled": true
             },
             {
-              "filled": true,
+              "nodeID": 16,
               "points": 2,
-              "nodeIdx": 16
+              "filled": true
             },
             {
-              "filled": true,
-              "points": 2,
-              "nodeIdx": 17
+              "nodeID": 17,
+              "points": 3,
+              "filled": true
             },
             {
-              "filled": true,
+              "nodeID": 18,
               "points": 2,
-              "nodeIdx": 18
+              "filled": true
             },
             {
-              "filled": true,
-              "points": 2,
-              "nodeIdx": 19
+              "nodeID": 21,
+              "points": 5,
+              "filled": true
             },
             {
-              "filled": true,
+              "nodeID": 20,
               "points": 2,
-              "nodeIdx": 20
+              "filled": true
             },
             {
-              "filled": true,
-              "points": 2,
-              "nodeIdx": 21
+              "nodeID": 23,
+              "points": 0,
+              "filled": false
             },
             {
-              "filled": true,
-              "points": 2,
-              "nodeIdx": 22
+              "nodeID": 19,
+              "points": 3,
+              "filled": true
             },
             {
-              "filled": true,
-              "points": 2,
-              "nodeIdx": 23
+              "nodeID": 25,
+              "points": 0,
+              "filled": false
             },
             {
-              "filled": true,
-              "points": 2,
-              "nodeIdx": 24
+              "nodeID": 26,
+              "points": 0,
+              "filled": false
             },
             {
-              "filled": true,
-              "points": 2,
-              "nodeIdx": 25
+              "nodeID": 27,
+              "points": 0,
+              "filled": false
             },
             {
-              "filled": true,
-              "points": 2,
-              "nodeIdx": 26
+              "nodeID": 28,
+              "points": 0,
+              "filled": false
             },
             {
-              "filled": true,
-              "points": 2,
-              "nodeIdx": 27
+              "nodeID": 29,
+              "points": 0,
+              "filled": false
             }
           ]
         },
         "5": {
-          "classID": 5,
-          "slots": [
+          "nodes": [
             {
-              "filled": true,
-              "points": 2,
-              "nodeIdx": 1
+              "nodeID": 2,
+              "points": 5,
+              "filled": true
             },
             {
-              "filled": true,
+              "nodeID": 3,
               "points": 2,
-              "nodeIdx": 2
+              "filled": true
             },
             {
-              "filled": true,
-              "points": 2,
-              "nodeIdx": 3
+              "nodeID": 1,
+              "points": 3,
+              "filled": true
             },
             {
-              "filled": true,
-              "points": 2,
-              "nodeIdx": 4
+              "nodeID": 6,
+              "points": 5,
+              "filled": true
             },
             {
-              "filled": true,
-              "points": 2,
-              "nodeIdx": 5
+              "nodeID": 5,
+              "points": 5,
+              "filled": true
             },
             {
-              "filled": true,
-              "points": 2,
-              "nodeIdx": 6
+              "nodeID": 4,
+              "points": 3,
+              "filled": true
             },
             {
-              "filled": true,
+              "nodeID": 8,
               "points": 2,
-              "nodeIdx": 7
+              "filled": true
             },
             {
-              "filled": true,
-              "points": 2,
-              "nodeIdx": 8
+              "nodeID": 7,
+              "points": 3,
+              "filled": true
             },
             {
-              "filled": true,
+              "nodeID": 9,
               "points": 2,
-              "nodeIdx": 9
+              "filled": true
             },
             {
-              "filled": true,
-              "points": 2,
-              "nodeIdx": 10
+              "nodeID": 11,
+              "points": 5,
+              "filled": true
             },
             {
-              "filled": true,
+              "nodeID": 12,
               "points": 2,
-              "nodeIdx": 11
+              "filled": true
             },
             {
-              "filled": true,
-              "points": 2,
-              "nodeIdx": 12
+              "nodeID": 10,
+              "points": 3,
+              "filled": true
             },
             {
-              "filled": true,
-              "points": 2,
-              "nodeIdx": 13
+              "nodeID": 15,
+              "points": 5,
+              "filled": true
             },
             {
-              "filled": true,
-              "points": 2,
-              "nodeIdx": 14
+              "nodeID": 14,
+              "points": 5,
+              "filled": true
             },
             {
-              "filled": true,
-              "points": 2,
-              "nodeIdx": 15
+              "nodeID": 13,
+              "points": 3,
+              "filled": true
             },
             {
-              "filled": true,
+              "nodeID": 16,
               "points": 2,
-              "nodeIdx": 16
+              "filled": true
             },
             {
-              "filled": true,
-              "points": 2,
-              "nodeIdx": 17
+              "nodeID": 17,
+              "points": 3,
+              "filled": true
             },
             {
-              "filled": true,
+              "nodeID": 18,
               "points": 2,
-              "nodeIdx": 18
+              "filled": true
             },
             {
-              "filled": true,
-              "points": 2,
-              "nodeIdx": 19
+              "nodeID": 21,
+              "points": 5,
+              "filled": true
             },
             {
-              "filled": true,
+              "nodeID": 20,
               "points": 2,
-              "nodeIdx": 20
+              "filled": true
             },
             {
-              "filled": true,
-              "points": 2,
-              "nodeIdx": 21
+              "nodeID": 23,
+              "points": 0,
+              "filled": false
             },
             {
-              "filled": true,
-              "points": 2,
-              "nodeIdx": 22
+              "nodeID": 19,
+              "points": 3,
+              "filled": true
             },
             {
-              "filled": true,
-              "points": 2,
-              "nodeIdx": 23
+              "nodeID": 25,
+              "points": 0,
+              "filled": false
             },
             {
-              "filled": true,
-              "points": 2,
-              "nodeIdx": 24
+              "nodeID": 26,
+              "points": 0,
+              "filled": false
             },
             {
-              "filled": true,
-              "points": 2,
-              "nodeIdx": 25
+              "nodeID": 27,
+              "points": 0,
+              "filled": false
             },
             {
-              "filled": true,
-              "points": 2,
-              "nodeIdx": 26
+              "nodeID": 28,
+              "points": 0,
+              "filled": false
             },
             {
-              "filled": true,
-              "points": 2,
-              "nodeIdx": 27
+              "nodeID": 29,
+              "points": 0,
+              "filled": false
             }
           ]
         },
         "6": {
-          "classID": 5,
-          "slots": [
+          "nodes": [
             {
-              "filled": true,
-              "points": 2,
-              "nodeIdx": 1
+              "nodeID": 2,
+              "points": 5,
+              "filled": true
             },
             {
-              "filled": true,
+              "nodeID": 3,
               "points": 2,
-              "nodeIdx": 2
+              "filled": true
             },
             {
-              "filled": true,
-              "points": 2,
-              "nodeIdx": 3
+              "nodeID": 1,
+              "points": 3,
+              "filled": true
             },
             {
-              "filled": true,
-              "points": 2,
-              "nodeIdx": 4
+              "nodeID": 6,
+              "points": 5,
+              "filled": true
             },
             {
-              "filled": true,
-              "points": 2,
-              "nodeIdx": 5
+              "nodeID": 5,
+              "points": 5,
+              "filled": true
             },
             {
-              "filled": true,
-              "points": 2,
-              "nodeIdx": 6
+              "nodeID": 4,
+              "points": 3,
+              "filled": true
             },
             {
-              "filled": true,
+              "nodeID": 8,
               "points": 2,
-              "nodeIdx": 7
+              "filled": true
             },
             {
-              "filled": true,
-              "points": 2,
-              "nodeIdx": 8
+              "nodeID": 7,
+              "points": 3,
+              "filled": true
             },
             {
-              "filled": true,
+              "nodeID": 9,
               "points": 2,
-              "nodeIdx": 9
+              "filled": true
             },
             {
-              "filled": true,
-              "points": 2,
-              "nodeIdx": 10
+              "nodeID": 11,
+              "points": 5,
+              "filled": true
             },
             {
-              "filled": true,
+              "nodeID": 12,
               "points": 2,
-              "nodeIdx": 11
+              "filled": true
             },
             {
-              "filled": true,
-              "points": 2,
-              "nodeIdx": 12
+              "nodeID": 10,
+              "points": 3,
+              "filled": true
             },
             {
-              "filled": true,
-              "points": 2,
-              "nodeIdx": 13
+              "nodeID": 15,
+              "points": 5,
+              "filled": true
             },
             {
-              "filled": true,
-              "points": 2,
-              "nodeIdx": 14
+              "nodeID": 14,
+              "points": 5,
+              "filled": true
             },
             {
-              "filled": true,
-              "points": 2,
-              "nodeIdx": 15
+              "nodeID": 13,
+              "points": 3,
+              "filled": true
             },
             {
-              "filled": true,
+              "nodeID": 16,
               "points": 2,
-              "nodeIdx": 16
+              "filled": true
             },
             {
-              "filled": true,
-              "points": 2,
-              "nodeIdx": 17
+              "nodeID": 17,
+              "points": 3,
+              "filled": true
             },
             {
-              "filled": true,
+              "nodeID": 18,
               "points": 2,
-              "nodeIdx": 18
+              "filled": true
             },
             {
-              "filled": true,
-              "points": 2,
-              "nodeIdx": 19
+              "nodeID": 21,
+              "points": 5,
+              "filled": true
             },
             {
-              "filled": true,
+              "nodeID": 20,
               "points": 2,
-              "nodeIdx": 20
+              "filled": true
             },
             {
-              "filled": true,
-              "points": 2,
-              "nodeIdx": 21
+              "nodeID": 23,
+              "points": 0,
+              "filled": false
             },
             {
-              "filled": true,
-              "points": 2,
-              "nodeIdx": 22
+              "nodeID": 19,
+              "points": 3,
+              "filled": true
             },
             {
-              "filled": true,
-              "points": 2,
-              "nodeIdx": 23
+              "nodeID": 25,
+              "points": 0,
+              "filled": false
             },
             {
-              "filled": true,
-              "points": 2,
-              "nodeIdx": 24
+              "nodeID": 26,
+              "points": 0,
+              "filled": false
             },
             {
-              "filled": true,
-              "points": 2,
-              "nodeIdx": 25
+              "nodeID": 27,
+              "points": 0,
+              "filled": false
             },
             {
-              "filled": true,
-              "points": 2,
-              "nodeIdx": 26
+              "nodeID": 28,
+              "points": 0,
+              "filled": false
             },
             {
-              "filled": true,
-              "points": 2,
-              "nodeIdx": 27
+              "nodeID": 29,
+              "points": 0,
+              "filled": false
             }
           ]
         }

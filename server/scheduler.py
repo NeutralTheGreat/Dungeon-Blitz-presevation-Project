@@ -8,7 +8,7 @@ import struct
 
 from BitBuffer import BitBuffer
 from Character import save_characters, load_characters, CHAR_SAVE_DIR
-from constants import class_111, class_64_const_218, class_1
+from constants import class_111, class_64_const_218, class_1, class_66
 
 # Will be set by server.py to resolve (user_id, char_name) → ClientSession
 active_session_resolver = None
@@ -118,49 +118,48 @@ def _on_research_done_for(user_id: str, char_name: str):
                 print(f"[Scheduler] notify failed: {e}")
 
 def schedule_research(user_id: str, char_name: str, ready_ts: int):
-    scheduler.schedule(
+    handle = scheduler.schedule(
         run_at=ready_ts,
         callback=lambda uid=user_id, cn=char_name: _on_research_done_for(uid, cn)
     )
+    return handle
+
 
 def _on_building_done_for(user_id: str, char_name: str):
-    # 1) Load persistent data
     chars = load_characters(user_id)
     char = next((c for c in chars if c.get("name") == char_name), None)
     if not char:
         return
 
-    # 2) Grab the pending upgrade
-    bu = char.get("buildingUpgrade")
+    bu = char.get("buildingUpgrade", {})
     if not isinstance(bu, dict):
         return
 
     now = int(time.time())
-    # If it's already done or not yet ready, bail
+    # Skip if canceled or not ready
+    if bu.get("buildingID", 0) == 0:
+        return
     if bu.get("done") or bu.get("ReadyTime", 0) > now:
         return
 
     building_id = bu.get("buildingID")
     new_rank    = bu.get("rank")
 
-    # 3) Mark done and apply to stats_by_building
     bu["done"] = True
     mf = char.setdefault("magicForge", {})
     stats_dict = mf.setdefault("stats_by_building", {})
-    if building_id is not None and new_rank is not None:
+    if building_id and new_rank:
         stats_dict[str(building_id)] = new_rank
 
-    # 4) Persist and clear the pending upgrade
+    # Clear state after completion
     char["buildingUpgrade"] = {
         "buildingID": 0,
-        "rank":       0,
-        "ReadyTime":  0,
-        "done":       False,
-        "isInstant":  False
+        "rank": 0,
+        "ReadyTime": 0,
+        "done": False,
     }
     save_characters(user_id, chars)
 
-    # 5) If the character is logged in, patch in‑memory and send packet
     if not active_session_resolver:
         return
     session = active_session_resolver(user_id, char_name)
@@ -171,25 +170,37 @@ def _on_building_done_for(user_id: str, char_name: str):
     if mem_char:
         mem_mf = mem_char.setdefault("magicForge", {})
         mem_stats = mem_mf.setdefault("stats_by_building", {})
-        if building_id is not None and new_rank is not None:
+        if building_id and new_rank:
             mem_stats[str(building_id)] = new_rank
+        mem_char["buildingUpgrade"] = char["buildingUpgrade"].copy()
 
-    # 6) Send the complete packet (0xD8 → status=1)
+    # Notify client (0xD8)
     try:
-        status_byte = (1 & 0b11111) << 3  # 1 = complete
-        payload     = bytes([status_byte])
+        bb = BitBuffer()
+        bb.write_method_6(building_id, 5)
+        bb.write_method_6(new_rank, 5)
+        bb.write_method_15(True)  # status = complete
+        payload = bb.to_bytes()
         session.conn.sendall(struct.pack(">HH", 0xD8, len(payload)) + payload)
-        print(f"[{session.addr}] Sent building-complete (0xD8) "
-              f"ID={building_id}, rank={new_rank}")
+        print(f"[{session.addr}] Sent building-complete (0xD8) ID={building_id}, rank={new_rank}")
     except Exception as e:
         print(f"[Scheduler] building notify failed: {e}")
 
 
 def schedule_building_upgrade(user_id: str, char_name: str, ready_ts: int):
-    scheduler.schedule(
+    handle = scheduler.schedule(
         run_at=ready_ts,
         callback=lambda uid=user_id, cn=char_name: _on_building_done_for(uid, cn)
     )
+
+    # Store the scheduler ID so it can be canceled later
+    chars = load_characters(user_id)
+    char = next((c for c in chars if c.get("name") == char_name), None)
+    if char:
+        bu = char.setdefault("buildingUpgrade", {})
+        bu["schedule_id"] = handle
+        save_characters(user_id, chars)
+
 
 
 
@@ -244,7 +255,6 @@ def schedule_forge(user_id: str, char_name: str, run_at: int, primary: int, seco
     )
 
 def _on_talent_done_for(user_id: str, char_name: str):
-    # 1) Load persistent data
     chars = load_characters(user_id)
     char = next((c for c in chars if c.get("name") == char_name), None)
     if not char:
@@ -252,52 +262,32 @@ def _on_talent_done_for(user_id: str, char_name: str):
 
     tr = char.get("talentResearch", {})
     now = int(time.time())
-    # nothing to do if already done or not yet ready
     if tr.get("done") or tr.get("ReadyTime", 0) > now:
         return
 
-    # 2) Mark done
+    # 1) Mark research as done (but don’t award point yet)
     tr["done"] = True
-
-    # 3) Award the talent point: maintain a simple dict keyed by classIndex
-    pts = char.setdefault("talentPoints", {})
-    class_idx = tr.get("classIndex")
-    if class_idx is not None:
-        # increment the counter for that class
-        pts[str(class_idx)] = pts.get(str(class_idx), 0) + 1
-
-    # 4) Persist and clear the pending research
-    char["talentResearch"] = {
-        "classIndex": None,
-        "ReadyTime":  0,
-        "done":       False,
-        "isInstant":  False
-    }
     save_characters(user_id, chars)
 
-    # 5) If the character is online, update in-memory and notify
+    # 2) Update in-memory session if online
     if not active_session_resolver:
         return
     session = active_session_resolver(user_id, char_name)
     if not (session and session.authenticated):
         return
 
-    # Mirror the award
     mem_char = next((c for c in session.char_list if c.get("name") == char_name), None)
     if mem_char:
-        mem_pts = mem_char.setdefault("talentPoints", {})
-        mem_pts[str(class_idx)] = mem_pts.get(str(class_idx), 0) + 1
-        # Clear the in-progress record
         mem_char["talentResearch"] = tr.copy()
 
-    # 6) Send the “research complete” packet (0xD5)
+    # 3) Notify client with 0xD5 “research complete”
     try:
         bb = BitBuffer()
-        bb.write_method_6(class_idx, 2)
-        bb.write_method_6(1, 1)   # status = complete
+        bb.write_method_6(tr.get("classIndex"), 2)  # classIndex
+        bb.write_method_6(1, 1)                     # status = complete
         payload = bb.to_bytes()
         session.conn.sendall(struct.pack(">HH", 0xD5, len(payload)) + payload)
-        print(f"[{session.addr}] Sent talent‐research complete (0xD5) for classIndex={class_idx}")
+        print(f"[{session.addr}] Sent 0xD5 research complete for classIndex={tr.get('classIndex')}")
     except Exception as e:
         print(f"[Scheduler] talent notify failed: {e}")
 

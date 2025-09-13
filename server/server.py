@@ -19,14 +19,15 @@ from Commands import handle_hotbar_packet, handle_masterclass_packet, handle_gea
     cancel_forge_packet, allocate_talent_points, use_forge_xp_consumable, handle_private_message, \
     handle_public_chat, handle_group_invite, handle_power_cast, handle_power_hit, \
     handle_projectile_explode, handle_add_buff, handle_remove_buff, handle_entity_full_update, \
-    handle_entity_incremental_update, handle_packet_0x41, Start_Skill_Research, \
+    handle_entity_incremental_update, handle_request_door_state, Start_Skill_Research, \
     handle_research_claim, PaperDoll_Request, Skill_Research_Cancell_Request, Skill_SpeedUp, handle_building_upgrade, \
     handle_speedup_request, handle_cancel_upgrade, handle_train_talent_point, handle_talent_speedup, \
     handle_talent_claim, handle_clear_talent_research, handle_hp_increase_notice, handle_volume_enter, \
     handle_change_offset_y, handle_start_skit, handle_change_max_speed, handle_lockbox_reward, handle_grant_reward, \
     handle_linkupdater, handle_request_respawn, handle_respawn_ack, PKTTYPE_BUFF_TICK_DOT, handle_entity_destroy, \
     handle_emote_begin, Client_Crash_Reports, handle_mount_equip_packet, handle_pet_info_packet, \
-    handle_collect_hatched_egg, handle_talk_to_npc, handle_char_regen
+    handle_collect_hatched_egg, handle_talk_to_npc, handle_char_regen, allocate_talent_tree_points, \
+    handle_respec_talent_tree, handle_building_claim
 from WorldEnter import build_enter_world_packet, Player_Data_Packet
 #from admin_panel import run_admin_panel
 from bitreader import BitReader
@@ -35,7 +36,7 @@ from constants import EntType
 from static_server import start_static_server
 from entity import Send_Entity_Data, load_npc_data_for_level
 from level_config import DOOR_MAP, LEVEL_CONFIG, get_spawn_coordinates
-from scheduler import set_active_session_resolver, schedule_research
+from scheduler import set_active_session_resolver
 
 HOST = "127.0.0.1"
 PORTS = [8080]# Developer mode Port : 7498
@@ -49,13 +50,11 @@ char_tokens = {}
 token_char   = {}
 extended_sent_map = {}  # user_id -> bool
 
-
 #with open("saves/ac89b54f094c.json", "r", encoding="utf-8") as f:
     #DEV_DUMMY_CHAR = json.load(f)["characters"][0]
 
 SECRET_HEX = "815bfb010cd7b1b4e6aa90abc7679028"
 SECRET      = bytes.fromhex(SECRET_HEX)
-
 
 def _level_add(level, session):
     s = level_registry.setdefault(level, set())
@@ -683,7 +682,7 @@ def handle_client(session: ClientSession):
             # Level & Door related packets
             ###################################
             elif pkt == 0x41:
-                handle_packet_0x41(session, data, conn)
+                handle_request_door_state(session, data, conn)
             elif pkt == 0x7D:
                 handle_change_offset_y(session, data)
             ###################################
@@ -738,7 +737,7 @@ def handle_client(session: ClientSession):
             elif pkt == 0x2C:# Done
                 handle_public_chat(session, data, all_sessions)
             elif pkt == 0xC5:# Done
-                handle_start_skit(session, data,all_sessions)# i think this is meant to be used during scripted events
+                handle_start_skit(session, data,all_sessions)
             elif pkt == 0x46:# Done
                 handle_private_message(session, data, all_sessions)
             elif pkt == 0x7E:# Done
@@ -763,16 +762,18 @@ def handle_client(session: ClientSession):
             ############################################
             elif pkt == 0xBD:# Done
                 handle_hotbar_packet(session, data)  # Equipped skills
+            elif pkt == 0xCC:# Done
+                # Client sends this when a new skill is equipped,
+                # actual hotbar update follows in 0xBD.
+                pass
             elif pkt == 0xBE:# Done
                 Start_Skill_Research(session, data, conn)
             elif pkt == 0xD1:# Done
-                handle_research_claim(session) # claim completed upgrade skills
+                handle_research_claim(session)
             elif pkt == 0xDD:# Done
                 Skill_Research_Cancell_Request(session)
             elif pkt == 0xDE:# Done
                 Skill_SpeedUp(session, data)
-            elif pkt == 0xCC:
-                pass
             ############################################
 
 
@@ -833,24 +834,24 @@ def handle_client(session: ClientSession):
                 cancel_forge_packet(session, data)
             elif pkt == 0x110:
                 use_forge_xp_consumable(session, data)
-            ############################################
-
-
-            #TODO...
-            # Talent Upgrade related packets
-            ############################################
-            elif pkt == 0xD6 :
-                handle_talent_claim(session, data)
-            elif pkt == 0xE0:
-                handle_talent_speedup(session, data)
-            elif pkt == 0xD4:
-                handle_train_talent_point(session, data)
-            elif pkt == 0xDF:
-                handle_clear_talent_research(session, data)
             elif pkt == 0xD3:
                 allocate_talent_points(session, data)
-            elif pkt == 0xD9:# the client sends this to acknowledge that the building has finishing upgrading
-                 pass
+            ############################################
+
+
+            ############################################
+            elif pkt == 0xD2 :# Done
+                handle_respec_talent_tree(session, data)
+            elif pkt == 0xC0:# Done
+                allocate_talent_tree_points(session,data)
+            elif pkt == 0xD6:# Done
+                handle_talent_claim(session, data)
+            elif pkt == 0xE0:# Done
+                handle_talent_speedup(session, data)
+            elif pkt == 0xD4:# Done
+                handle_train_talent_point(session, data)
+            elif pkt == 0xDF:# Done
+                handle_clear_talent_research(session, data)
             ############################################
 
 
@@ -878,13 +879,17 @@ def handle_client(session: ClientSession):
 
             # Buildings Upgrade packets
             ############################################
-            elif pkt == 0xDB:
+            elif pkt == 0xDB:# Done
                 handle_cancel_upgrade(session, data)
-            elif pkt == 0xDC:
+            elif pkt == 0xDC:# Done
                 handle_speedup_request(session, data)
-            elif pkt == 0xD7:
+            elif pkt == 0xD7:# Done
                 handle_building_upgrade(session, data)
+            elif pkt == 0xD9:# Done
+                handle_building_claim(session, data)
             ############################################
+
+
 
 
             elif pkt == 0xF0:

@@ -49,8 +49,29 @@ FRAMEBITS_TO_CLASSKEY = {
         550: "necromancer",
     }
 
+def index_to_node_id(index: int) -> int:
+    """
+    Reverse mapping of client method_191:
+    Array index (0-26) -> NodeID (1-27)
+    """
+    if index < 9:  # indices 0-8 → NodeID 1-9
+        return index + 1
+    elif index < 18:  # indices 9-17 → NodeID 11-19
+        return index + 2
+    else:  # indices 18-26 → NodeID 20-27
+        return index + 3
+
 def method_233(frame_bits: int) -> str:
     return FRAMEBITS_TO_CLASSKEY.get(frame_bits, "")
+
+def client_index_to_node_id(i: int) -> int:
+    """Emulates ActionScript method_191"""
+    if i < 9:
+        return i + 1
+    elif i < 18:
+        return i + 2
+    else:
+        return i + 3
 
 
 MASTERCLASS_TO_BUILDING = {
@@ -136,6 +157,14 @@ class class_9:
     const_214 = 10
     const_1404 = 0
     const_1390 = 1
+
+class door:
+    DOORSTATE_CLOSED = 0
+    DOORSTATE_STATIC = 1
+    DOORSTATE_MISSION = 2
+    DOORSTATE_MISSIONREPEAT = 3
+    DOORSTATE_LOCKED = 4
+
 
 class class_10:
     const_83 = 7
@@ -264,7 +293,7 @@ class class_66:
     const_534 = 2
     const_495 = 50
     const_948 = 5
-    RESEARCH_DURATIONS = [0, Game.const_181, 7200, 14400, 21600, 37800, 54000, 70200, 86400, 108000, 129600, 150750,
+    RESEARCH_DURATIONS = [0, 180, 7200, 14400, 21600, 37800, 54000, 70200, 86400, 108000, 129600, 150750,
                           171900, 195750, 219600, 268500, 317400, 337500, 357600, 434850, 512100, 532575, 553050,
                           575175, 597300, 621200, 645100, 670900, 696700, 724575, 752450, 782550, 812650, 845150,
                           877650, 912750, 947850, 985775, 1023700, 1064650, 1105600, 1149825, 1194050, 1241800, 1289550,
@@ -331,15 +360,17 @@ ABILITY_DATA = load_ability_data()
 def get_ability_info(ability_id, rank):
     """Retrieve ability data by abilityID and rank from ABILITY_DATA."""
     for entry in ABILITY_DATA:
-        if (entry.get("AbilityID") == str(ability_id) and
-            entry.get("Rank") == str(rank)):
+        if entry.get("AbilityID") == str(ability_id) and entry.get("Rank") == str(rank):
             return {
-                "abilityID": int(entry["AbilityID"]),
-                "rank": int(entry["Rank"]),
-                "goldCost": int(entry["GoldCost"]),
-                "upgradeTime": int(entry["UpgradeTime"])
+                "AbilityID": int(entry.get("AbilityID", 0)),
+                "Rank": int(entry.get("Rank", 0)),
+                "GoldCost": int(entry.get("GoldCost", 0)),
+                "IdolCost": int(entry.get("IdolCost", 0)),
+                "UpgradeTime": int(entry.get("UpgradeTime", 0))
             }
     return None
+
+
 
 BUILDING_DATA = []
 

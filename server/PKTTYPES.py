@@ -162,7 +162,6 @@ const_1284 = 0xe0
 const_1044 = 0xd4
 const_1220 = 0xdf
 const_1047 = 0xd3
-const_878 = 0xd9
 const_920 = 0xd5
 const_929 = 0xbd
 const_1077 = 0xbe
@@ -198,6 +197,7 @@ const_1187 = 0xdc
 const_861 = 0xd7
 const_838 = 0xd8
 const_1027 = 0xe3
+const_878 = 0xd9
 #===================================
 
 # Master Class Related Packets

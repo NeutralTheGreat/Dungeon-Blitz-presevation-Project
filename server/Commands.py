@@ -1,5 +1,6 @@
 
 import json, struct
+import math
 import pprint
 import random
 import secrets
@@ -10,15 +11,19 @@ from accounts import build_popup_packet
 from bitreader import BitReader
 from constants import GearType, EntType, class_64, class_1, DyeType, class_118, method_277, \
     class_111, class_1_const_254, class_8, class_3, \
-    get_ability_info, load_building_data, find_building_data, class_66, LinkUpdater, PowerType, Entity, Game, class_13
+    get_ability_info, load_building_data, find_building_data, class_66, LinkUpdater, PowerType, Entity, Game, class_13, \
+    index_to_node_id, door
 from BitBuffer import BitBuffer
 from constants import get_dye_color
+from entity import Send_Entity_Data
 from level_config import SPAWN_POINTS, DOOR_MAP, LEVEL_CONFIG
 from scheduler import scheduler, _on_research_done_for, schedule_building_upgrade, _on_building_done_for, \
     schedule_forge, _on_talent_done_for, schedule_Talent_point_research
 from missions import _MISSION_DEFS_BY_ID
 
 SAVE_PATH_TEMPLATE = "saves/{user_id}.json"
+
+
 
 
 #TODO...
@@ -303,44 +308,47 @@ def handle_lockbox_reward(session):
 
     print(f"Lockbox reward: idx={idx}, name={name}, needs_str={needs_str}")
 
-
-def send_mastery_packet(session, entity_id):
-    # 1) Fetch slots for current MasterClass
-
+def send_talent_tree_packet(session, entity_id):
+    """
+    Sends the talent tree for the player's current MasterClass.
+    Uses the new 27-slot array structure.
+    """
     mc = None
-    slots = []
+    nodes = [None] * class_118.NUM_TALENT_SLOTS
+
     for char in session.char_list:
         if char.get("name") == session.current_character:
-            mc      = char.get("MasterClass", 1)
-            mastery = char.get("Mastery", {}).get(str(mc), {})
-            slots   = mastery.get("slots", [])
+            mc = char.get("MasterClass", 1)
+            tree = char.get("TalentTree", {}).get(str(mc), {})
+            nodes = tree.get("nodes", [None] * class_118.NUM_TALENT_SLOTS)
             break
     else:
-        return
+        return  # no matching character
+
     session.player_data["characters"] = session.char_list
 
-    # Turn into a map 0-based index -> slot data
-    slot_map = { s["nodeIdx"] - 1: s for s in slots }
-
-    # 2) Build the exact packet
+    # Build the packet
     bb = BitBuffer()
     bb.write_method_4(entity_id)
 
-    total = class_118.NUM_TALENT_SLOTS  # 27 slots
-    for i in range(total):
-        if i in slot_map and slot_map[i].get("filled"):
-            slot = slot_map[i]
+    for i, slot in enumerate(nodes):
+        slot = slot or {"filled": False, "points": 0, "nodeID": i + 1}
+
+        if slot.get("filled", False):
             bb.write_method_6(1, 1)  # has this node
-            bb.write_method_6(slot["nodeIdx"], class_118.const_127)
-            width = method_277(i)  # exactly method_277(i)
-            bb.write_method_6(slot["points"] - 1, width)
+            node_id = slot.get("nodeID", i + 1)
+            bb.write_method_6(node_id, class_118.const_127)  # send nodeIdx (1-based)
+            width = method_277(i)
+            bb.write_method_6(slot["points"] - 1, width)  # points minus one
         else:
-            bb.write_method_6(0, 1)
+            bb.write_method_6(0, 1)  # no node present
 
     payload = bb.to_bytes()
     pkt = struct.pack(">HH", 0xC1, len(payload)) + payload
     session.conn.sendall(pkt)
-    #print(f"[Reply 0xC1] Mastery for class {mc}, slot_map keys: {sorted(slot_map.keys())}")
+    print(f"[Reply 0xC1] TalentTree for class {mc}, total slots: {len(nodes)}")
+
+
 
 def handle_masterclass_packet(session, raw_data):
     payload = raw_data[4:]
@@ -366,15 +374,13 @@ def handle_masterclass_packet(session, raw_data):
     session.conn.sendall(resp)
     print(f"[Reply 0xC3] entity={entity_id}, class={master_class_id}")
 
-    send_mastery_packet(session, entity_id)
+    send_talent_tree_packet(session, entity_id)
 
 def handle_clear_talent_research(session, data):
     """
     Handle 0xDF: client cleared the current talent research.
-    Payload: [ header(4) ]  (no body)
+    Payload: [ header(4) ] (no body)
     """
-    #print(f"[{session.addr}] [0xDF] ClearResearch packet received")
-
     # 1) Locate the character
     char = next((c for c in session.char_list
                  if c.get("name") == session.current_character), None)
@@ -385,29 +391,28 @@ def handle_clear_talent_research(session, data):
     # 2) Cancel any pending scheduler
     tr = char.get("talentResearch", {})
     sched_id = tr.pop("schedule_id", None)
-    if sched_id is not None:
+    if sched_id:
         try:
             scheduler.cancel(sched_id)
-            print(f"[{session.addr}] [0xDF] Canceled talent schedule id={sched_id}")
+            print(f"[{session.addr}] [0xDF] canceled scheduled research id={sched_id}")
         except Exception as e:
-            print(f"[{session.addr}] [0xDF] Failed to cancel schedule: {e}")
+            print(f"[{session.addr}] [0xDF] failed to cancel schedule: {e}")
 
     # 3) Clear the research state
     char["talentResearch"] = {
         "classIndex": None,
         "ReadyTime":  0,
         "done":       False,
-        "isInstant":  False
     }
 
-    # 4) Persist and mirror
+    # 4) Persist and mirror session
     save_characters(session.user_id, session.char_list)
     mem = next((c for c in session.char_list
                 if c.get("name") == session.current_character), None)
     if mem:
         mem["talentResearch"] = char["talentResearch"].copy()
 
-    #print(f"[{session.addr}] [0xDF] talentResearch cleared for {session.current_character}")
+    print(f"[{session.addr}] [0xDF] talentResearch cleared for {session.current_character}")
 
 def handle_gear_packet(session, raw_data):
     payload = raw_data[4:]
@@ -1264,113 +1269,140 @@ def Client_Crash_Reports(session, data):
         msg = repr(payload)
     print(f"[{session.addr}] CLIENT ERROR (0x7C): {msg}")
 
-def handle_packet_0x41(session, data, conn):
+
+def handle_request_door_state(session, data, conn):
+    """
+    Handle packet 0x41: client requests the state of a door.
+    Server replies with 0x42 (door state + target).
+    """
     if len(data) < 4:
         return
+
     payload_length = struct.unpack(">H", data[2:4])[0]
     if len(data) != 4 + payload_length:
         return
+
     payload = data[4:4 + payload_length]
+
     try:
         br = BitReader(payload)
         door_id = br.read_method_9()
-    except Exception:
+    except Exception as e:
+        print(f"[{session.addr}] [0x41] Failed to parse door request: {e}")
         return
+
+    # 1) Default response: closed door
+    door_state = door.DOORSTATE_CLOSED
+    door_target = ""
+    star_rating = None
+
+    # 2) Resolve configured door for this level
     door_info = DOOR_MAP.get((session.current_level, door_id))
-    bb = BitBuffer()
-    bb.write_method_4(door_id)
-    if door_info is None:
-        bb.write_method_91(1)
-        bb.write_method_13("")
-    else:
-        if isinstance(door_info, str):
-            bb.write_method_91(1)
-            bb.write_method_13(door_info)
+    if door_info is not None:
+        # ---- Case: static target (string path) ----
+        if isinstance(door_info, str) and not door_info.startswith("mission:"):
+            door_state = door.DOORSTATE_STATIC
+            door_target = door_info
+
+        # ---- Case: mission door ----
+        elif isinstance(door_info, str) and door_info.startswith("mission:"):
+            try:
+                mission_id = door_info.split(":", 1)[1]
+            except Exception:
+                mission_id = None
+
+            # Lookup this character's mission progress
+            char = next((c for c in session.char_list
+                         if c.get("name") == session.current_character), None)
+            mission_data = {}
+            if char:
+                mission_data = char.get("missions", {}).get(str(mission_id), {})
+
+            # If the mission has state==2 (completed), mark as repeat
+            if mission_data.get("state") == 2:  # client Mission.const_72
+                door_state = door.DOORSTATE_MISSIONREPEAT
+                door_target = ""  # client fills this based on mission
+                star_rating = mission_data.get("Tier", 0)  # or use .get("highscore")
+            else:
+                door_state = door.DOORSTATE_MISSION
+                door_target = ""  # client shows dungeon name
         else:
-            bb.write_method_91(door_info)
-            bb.write_method_13("")
+            # Fallback: static, no target
+            door_state = door.DOORSTATE_STATIC
+            door_target = ""
+
+    # 3) Build reply
+    bb = BitBuffer()
+    bb.write_method_4(door_id)         # door id
+    bb.write_method_91(door_state)     # door state
+    bb.write_method_13(door_target)    # target name (if any)
+    if door_state == door.DOORSTATE_MISSIONREPEAT and star_rating is not None:
+        bb.write_method_6(star_rating, 5)  # client expects var_2671 (5 bits)
+
     payload = bb.to_bytes()
     response = struct.pack(">HH", 0x42, len(payload)) + payload
-    conn.sendall(response)
+
+    try:
+        conn.sendall(response)
+        print(f"[{session.addr}] [0x41] Door {door_id} → state={door_state}, target='{door_target}'")
+    except Exception as e:
+        print(f"[{session.addr}] [0x41] Failed to send door state: {e}")
+
 
 
 def Start_Skill_Research(session, data, conn):
     br = BitReader(data[4:], debug=True)
     try:
-        # --- 1) Parse the incoming 0xBE packet ---
         ability_id = br.read_method_20(7)
         rank       = br.read_method_20(4)
-        is_instant = bool(br.read_method_15())
-        print(f"[{session.addr}] [PKT0xBE] Parsed skill upgrade: "
-              f"abilityID={ability_id}, rank={rank}, isInstant={is_instant}")
+        used_idols = bool(br.read_method_15())
 
-
+        print(f"[{session.addr}] [0xBE] Skill upgrade request: "
+              f"abilityID={ability_id}, rank={rank}, idols={used_idols}")
 
         char = next((c for c in session.char_list
                      if c.get("name") == session.current_character), None)
         if not char:
-            raise ValueError(f"Character {session.current_character} not found")
+            return
 
-        # --- 3) Validate ability & rank ---
+        # --- Lookup by ID + Rank ---
         ability_data = get_ability_info(ability_id, rank)
         if not ability_data:
-            raise LookupError(f"Invalid ability/rank ({ability_id}, {rank})")
-        if rank > 10:
-            raise ValueError("Rank exceeds maximum (10)")
+            print(f"[{session.addr}] [0xBE] Invalid ability/rank ({ability_id}, {rank})")
+            return
 
-        # --- 4) Check Tome rank from stats_by_building ---
-        mf = char.setdefault("magicForge", {})
-        stats_dict = mf.setdefault("stats_by_building", {})
-        # BuildingID for Tome is "1" in your mapping
-        tome_rank = stats_dict.get("1", 0)
-        if rank > tome_rank:
-            raise ValueError("Upgrade requires a higher Tome rank")
+        gold_cost    = int(ability_data["GoldCost"])
+        idol_cost    = int(ability_data["IdolCost"])
+        upgrade_time = int(ability_data["UpgradeTime"])
 
-        # --- 5) Deduct gold if not instant ---
-        if not is_instant:
-            curr_gold = char.get("gold", 0)
-            cost      = int(ability_data["goldCost"])
-            if curr_gold < cost:
-                raise ValueError("Not enough gold for upgrade")
-            char["gold"] = curr_gold - cost
+        # --- Deduct currency ---
+        if used_idols:
+            char["mammothIdols"] = char.get("mammothIdols", 0) - idol_cost
+            send_premium_purchase(session, "SkillResearch", idol_cost)
+            print(f"[{session.addr}] Deducted {idol_cost} idols for skill upgrade")
+        else:
+            char["gold"] = char.get("gold", 0) - gold_cost
+            print(f"[{session.addr}] Deducted {gold_cost} gold for skill upgrade")
 
-        # --- 6) Schedule the research ---
-        ready_ts = int(time.time()) + (0 if is_instant else int(ability_data["upgradeTime"]))
+        # --- Save research state ---
+        ready_ts = int(time.time()) + upgrade_time
+        sched_id = scheduler.schedule(
+            run_at=ready_ts,
+            callback=lambda uid=session.user_id, cname=char["name"]:
+                _on_research_done_for(uid, cname)
+        )
+
         char["research"] = {
             "abilityID": ability_id,
             "ReadyTime": ready_ts,
             "done": False,
         }
         save_characters(session.user_id, session.char_list)
-        print(f"[{session.addr}] Started research for {char['name']} → ReadyTime={ready_ts}")
 
-        # --- 7) Queue completion callback ---
-        scheduler.schedule(
-            run_at=ready_ts,
-            callback=lambda uid=session.user_id, cname=char["name"]:
-                         _on_research_done_for(uid, cname)
-        )
+        print(f"[{session.addr}] [0xBE] Research scheduled: ready at {ready_ts}, id={sched_id}")
 
-        # --- 8) Immediate “in progress” reply (0xBF) ---
-        bb = BitBuffer()
-        bb.write_method_6(1, 16)            # placeholder building ID
-        bb.write_method_6(2, 8)             # status = in progress
-        bb.write_method_6(ability_id, 7)
-        bb.write_method_6(rank, 4)
-        payload = bb.to_bytes()
-        conn.sendall(struct.pack(">HH", 0xBF, len(payload)) + payload)
-        print(f"[{session.addr}] [PKT0xBE] Sent 0xBF confirmation len={len(payload)}")
-
-    except (ValueError, LookupError) as err:
-        print(f"[{session.addr}] [PKT0xBE] Error: {err}")
-        conn.sendall(build_popup_packet(str(err), disconnect=False))
-
-    except Exception as ex:
-        print(f"[{session.addr}] [PKT0xBE] Unexpected error: {ex}")
-        conn.sendall(build_popup_packet("Invalid skill upgrade request", disconnect=False))
-
-
-
+    except Exception as e:
+        print(f"[{session.addr}] [0xBE] Error: {e}")
 
 
 def handle_research_claim(session):
@@ -1400,7 +1432,6 @@ def handle_research_claim(session):
 
     print(f"[{session.addr}] Claimed research: abilityID={ability_id}")
 
-    # Instead of deleting, reset the research block to a neutral "done" state
     char["research"] = {
         "abilityID": 0,
         "ReadyTime": 0,
@@ -1411,348 +1442,385 @@ def handle_research_claim(session):
 
 def Skill_Research_Cancell_Request(session):
     """
-    Handles research cancellation (0xDD).
-    Resets research state and optionally refunds gold.
+    Handle 0xDD: cancel skill research.
+    Clears research state and cancels any pending scheduler.
     """
     char = next((c for c in session.char_list if c["name"] == session.current_character), None)
     if not char:
-        print(f"[{session.addr}] Cannot cancel research: No character found")
+        print(f"[{session.addr}] [0xDD] Cannot cancel research: no character found")
         return
 
     research = char.get("research")
     if not research or research.get("done"):
-        print(f"[{session.addr}] No active research to cancel")
+        print(f"[{session.addr}] [0xDD] No active research to cancel")
         return
 
     ability_id = research.get("abilityID")
-    ready_time = research.get("ReadyTime")
-    now = int(time.time())
 
-    # === Configurable gold refund percentage ===
-    REFUND_PERCENT = 0.0  # set to 0.5 for 50% refund if needed
+    # Cancel any scheduled completion task
+    sched_id = research.pop("schedule_id", None)
+    if sched_id:
+        try:
+            scheduler.cancel(sched_id)
+            print(f"[{session.addr}] [0xDD] Cancelled scheduled research id={sched_id}")
+        except Exception as e:
+            print(f"[{session.addr}] [0xDD] Failed to cancel scheduler: {e}")
 
-    # === Determine current rank of the ability ===
-    learned = char.get("learnedAbilities", [])
-    current_rank = 0
-    for ab in learned:
-        if ab["abilityID"] == ability_id:
-            current_rank = ab["rank"]
-            break
-
-    next_rank = current_rank + 1
-
-    # === Replace this with your actual gold cost function ===
-    def calculate_research_cost(ability_id: int, rank: int) -> int:
-        # Dummy placeholder logic
-        return 1000 * rank + 500
-
-    full_cost = calculate_research_cost(ability_id, next_rank)
-    refund_amount = int(full_cost * REFUND_PERCENT)
-
-    # Cancel research and refund
+    # Clear research state
     char["research"] = {
         "abilityID": 0,
         "ReadyTime": 0,
         "done": True
     }
 
-    char["gold"] = char.get("gold", 0) + refund_amount
-
-    print(f"[{session.addr}] Research cancelled: abilityID={ability_id}, refunded {refund_amount}")
     save_characters(session.user_id, session.char_list)
+    print(f"[{session.addr}] [0xDD] Research cancelled for abilityID={ability_id}")
+
+
 
 def Skill_SpeedUp(session, data):
     """
     Handles skill research speed-up request (0xDE).
-    Deducts idols and completes the research immediately.
-    Sends 0xBF confirmation back to the client.
+    Deducts idols, completes research immediately,
+    and sends 0xBF + idol update (0xB5).
     """
     br = BitReader(data[4:])
     idol_cost = br.read_method_9()
 
     char = next((c for c in session.char_list if c["name"] == session.current_character), None)
     if not char:
-        print(f"[{session.addr}] Cannot speed up research: No character found")
+        print(f"[{session.addr}] [0xDE] Cannot speed up: no character found")
         return
 
     research = char.get("research")
     if not research or research.get("done"):
-        print(f"[{session.addr}] Cannot speed up: No active research or already done")
+        print(f"[{session.addr}] [0xDE] No active research to speed up")
         return
 
     if idol_cost > 0:
-        current_idols = char.get("mammothIdols", 0)
-        if current_idols < idol_cost:
-            print(f"[{session.addr}] Not enough idols for speed-up: required={idol_cost}, have={current_idols}")
-            return
-        char["mammothIdols"] = current_idols - idol_cost
+        char["mammothIdols"] = char.get("mammothIdols", 0) - idol_cost
+        send_premium_purchase(session, "SkillSpeedup", idol_cost)
+        print(f"[{session.addr}] [0xDE] Deducted {idol_cost} idols for skill speed-up")
 
-    # Complete the research instantly
+    # Complete instantly
     research["ReadyTime"] = 0
     research["done"] = True
-
     save_characters(session.user_id, session.char_list)
 
-    # Send 0xBF confirmation packet
-    bb = BitBuffer()
-    bb.write_method_6(research["abilityID"], 7)
-    payload = bb.to_bytes()
+    # Mirror in-memory
+    mem_char = next((c for c in session.char_list if c["name"] == session.current_character), None)
+    if mem_char:
+        mem_char["mammothIdols"] = char["mammothIdols"]
+        mem_char["research"] = research.copy()
 
-    session.conn.sendall(struct.pack(">HH", 0xBF, len(payload)) + payload)
-
-    print(f"[{session.addr}] Speed-up complete: abilityID={research['abilityID']}, cost={idol_cost}")
+    # Send completion packet 0xBF
+    try:
+        bb = BitBuffer()
+        bb.write_method_6(research["abilityID"], 7)
+        payload = bb.to_bytes()
+        session.conn.sendall(struct.pack(">HH", 0xBF, len(payload)) + payload)
+        print(f"[{session.addr}] [0xDE] Sent 0xBF complete for abilityID={research['abilityID']}")
+    except Exception as e:
+        print(f"[{session.addr}] [0xDE] Failed to send 0xBF: {e}")
 
 
 
 def handle_building_upgrade(session, data):
+    """
+    Handle 0xD7: client requested a building upgrade.
+    Payload = [ header(4) | buildingID(5) | rank(5) | isInstant(1) ]
+    """
     load_building_data()
 
     try:
-        # --- 1) Parse the incoming 0xD7 packet ---
+        # --- 1) Parse incoming packet ---
         payload = data[4:]
-        if len(payload) < 2:
-            raise ValueError("Malformed 0xD7 payload")
-
         br = BitReader(payload, debug=True)
+
         building_id = br.read_method_20(5)
         client_rank = br.read_method_20(5)
-        is_instant  = bool(br.read_method_15())
+        used_idols  = bool(br.read_method_15())  # client flag, we just treat as "paid with idols"
 
-        rank = client_rank + 1
+        print(f"[{session.addr}] [0xD7] Upgrade request: "
+              f"buildingID={building_id}, rank={client_rank}, idols={used_idols}")
 
-        print(f"[{session.addr}] [PKT0xD7] Upgrade request: "
-              f"ID={building_id}, rank={client_rank+1}, isInstant={is_instant}")
-
-        # --- 2) Lookup character & current rank ---
+        # --- 2) Locate character ---
         char = next(c for c in session.char_list
                     if c["name"] == session.current_character)
 
-        # Get current rank from stats_by_building dict (default 0)
         mf = char.setdefault("magicForge", {})
         stats_dict = mf.setdefault("stats_by_building", {})
         current_rank = stats_dict.get(str(building_id), 0)
 
-        # Determine the new rank
-        rank = 1 if current_rank == 0 else current_rank + 1
+        # Sanity: requested rank must be exactly +1
+        if client_rank != current_rank + 1:
+            print(f"[{session.addr}] [0xD7] invalid rank upgrade "
+                  f"(current={current_rank}, requested={client_rank})")
+            return
 
-        # --- 3) Cost & time from your data table ---
-        bdata        = find_building_data(building_id, rank)
+        # --- 3) Look up building data ---
+        bdata        = find_building_data(building_id, client_rank)
         gold_cost    = int(bdata["GoldCost"])
+        idol_cost    = int(bdata.get("IdolCost", 0))
         upgrade_time = int(bdata["UpgradeTime"])
 
-        # --- 4) Deduct gold if not instant ---
-        if not is_instant:
+        # --- 4) Handle currency ---
+        if used_idols:
+            if char.get("mammothIdols", 0) < idol_cost:
+                print(f"[{session.addr}] [0xD7] not enough idols "
+                      f"({char.get('mammothIdols')} < {idol_cost})")
+                return
+            char["mammothIdols"] -= idol_cost
+            send_premium_purchase(session, "BuildingUpgrade", idol_cost)
+            print(f"[{session.addr}] Deducted {idol_cost} idols for upgrade")
+        else:
             if char.get("gold", 0) < gold_cost:
-                raise ValueError("Not enough gold")
+                print(f"[{session.addr}] [0xD7] not enough gold "
+                      f"({char.get('gold')} < {gold_cost})")
+                return
             char["gold"] -= gold_cost
+            print(f"[{session.addr}] Deducted {gold_cost} gold for upgrade")
 
-        # --- 5) Compute finish timestamp ---
-        now        = int(time.time())
-        ready_time = now if is_instant else now + upgrade_time
+        # --- 5) Compute finish time ---
+        now = int(time.time())
+        ready_time = now + upgrade_time
 
-        # --- 6) Persist the pending upgrade ---
+        # --- 6) Persist pending upgrade ---
         char["buildingUpgrade"] = {
             "buildingID": building_id,
-            "rank": rank,
+            "rank": client_rank,
             "ReadyTime": ready_time,
-            "done": False,
-            "isInstant": is_instant
+            "done": False
         }
         save_characters(session.user_id, session.char_list)
 
-        # --- 7) Fire or schedule completion ---
-        if is_instant:
-            # Will update stats_by_building & send 0xD8 completion
-            _on_building_done_for(session.user_id, session.current_character)
-        else:
-            schedule_building_upgrade(
-                session.user_id,
-                session.current_character,
-                ready_time
-            )
+        # --- 7) Schedule completion ---
+        schedule_building_upgrade(
+            session.user_id,
+            session.current_character,
+            ready_time
+        )
 
     except Exception as e:
-        print(f"[{session.addr}] [PKT0xD7] Error: {e}")
+        print(f"[{session.addr}] [0xD7] Error: {e}")
+
+
 
 def handle_speedup_request(session, data):
     """
-    Handle packet 0xDC (speed‑up using Mammoth Idols).
-    Payload is: [ header(4 bytes) | body... ]
-    The body is a bit‑packed value written via method_9(cost).
+    Handle 0xDC: client clicked 'Speed-up' for building upgrade.
+    Payload: [header(4) | idolCost(method_9)].
     """
-    # --- Parse the incoming packet ---
     payload = data[4:]
     br = BitReader(payload, debug=True)
     try:
         idol_cost = br.read_method_9()
     except Exception as e:
-        print(f"[{session.addr}] [PKT0xDC] failed to parse payload: {e}")
+        print(f"[{session.addr}] [0xDC] parse error: {e}")
         return
 
-    print(f"[{session.addr}] [PKT0xDC] Speed‑up requested with cost={idol_cost}")
+    print(f"[{session.addr}] [0xDC] Speed-up requested: cost={idol_cost}")
 
-    # --- Look up the character ---
+    # --- Locate character ---
     char = next((c for c in session.char_list
-                 if c.get("name") == session.current_character), None)
+                 if c["name"] == session.current_character), None)
     if not char:
-        print(f"[{session.addr}] [PKT0xDC] no current character")
         return
 
-    # --- Verify idol balance ---
-    curr_idols = char.get("mammothIdols", 0)
-    if curr_idols < idol_cost:
-        print(f"[{session.addr}] [PKT0xDC] not enough idols ({curr_idols} < {idol_cost})")
-        return
-    char["mammothIdols"] = curr_idols - idol_cost
+    # --- Deduct idols and notify client ---
+    if idol_cost > 0:
+        char["mammothIdols"] = char.get("mammothIdols", 0) - idol_cost
+        send_premium_purchase(session, "BuildingSpeedup", idol_cost)
+        print(f"[{session.addr}] Deducted {idol_cost} idols for speed-up")
 
-    # --- Get pending upgrade info ---
+    # --- Grab pending upgrade ---
     bu = char.get("buildingUpgrade", {})
     building_id = bu.get("buildingID")
-    new_rank     = bu.get("rank")
+    new_rank    = bu.get("rank")
     if not building_id or new_rank is None:
-        print(f"[{session.addr}] [PKT0xDC] no pending buildingUpgrade to speed‑up")
+        print(f"[{session.addr}] [0xDC] no active building upgrade")
         save_characters(session.user_id, session.char_list)
         return
 
-    # --- Mark the upgrade done and record the new rank ---
-    bu["done"] = True
+    # --- Cancel scheduler (if any) ---
+    bu.pop("schedule_id", None)  # we don’t track IDs, just clean
+    # (scheduled task will auto-skip if buildingID==0)
 
-    # Store stats in a dict keyed by building ID
+    # --- Apply upgrade immediately ---
     stats_dict = char.setdefault("magicForge", {}).setdefault("stats_by_building", {})
     stats_dict[str(building_id)] = new_rank
 
-    # --- Clear the pending upgrade request ---
-    bu.update({
-        "buildingID": 0,
-        "rank": 0,
-        "ReadyTime": 0,
-        "done": False,
-        "isInstant": False
-    })
-
-    # --- Persist changes ---
-    save_characters(session.user_id, session.char_list)
-
-    # --- Mirror updates in in‑memory list ---
-    mem_char = next((c for c in session.char_list
-                     if c.get("name") == session.current_character), None)
-    if mem_char:
-        mem_char["mammothIdols"] = char["mammothIdols"]
-        mem_char.setdefault("magicForge", {})["stats_by_building"] = stats_dict.copy()
-
-    # --- Send success response (0xD8) ---
-    try:
-        status_byte = (1 & 0b11111) << 3  # 1 = completed
-        out_payload = bytes([status_byte])
-        session.conn.sendall(
-            struct.pack(">HH", 0xD8, len(out_payload)) + out_payload
-        )
-        print(f"[{session.addr}] [PKT0xDC] sped‑up building ID={building_id} to rank={new_rank}")
-    except Exception as e:
-        print(f"[{session.addr}] [PKT0xDC] failed to send completion: {e}")
-
-
-
-def handle_cancel_upgrade(session, data):
-    """
-    Handle packet 0xDB (CancelUpgrade).
-    Resets the 'buildingUpgrade' object to default empty state.
-    """
-    char = next((c for c in session.char_list
-                 if c.get("name") == session.current_character), None)
-    if not char:
-        return
-
-    # Ensure buildingUpgrade key exists and reset its fields
+    # --- Clear pending upgrade ---
     char["buildingUpgrade"] = {
         "buildingID": 0,
         "rank": 0,
         "ReadyTime": 0,
         "done": False,
-        "isInstant": False
     }
 
     save_characters(session.user_id, session.char_list)
-    print(f"[{session.addr}] [PKT0xDB] Building upgrade canceled and reset")
 
-    # Send back 0xD8 status = 0 to tell client there's no active upgrade
-    status_byte = (0 & 0b11111) << 3
-    payload = bytes([status_byte])
-    session.conn.sendall(struct.pack(">HH", 0xE3, len(payload)) + payload)
-    print(f"[{session.addr}] Sent 0xD8 with status=0 after cancel")
+    # --- Mirror in session ---
+    mem_char = next((c for c in session.char_list
+                     if c.get("name") == session.current_character), None)
+    if mem_char:
+        mem_char["mammothIdols"] = char["mammothIdols"]
+        mem_char.setdefault("magicForge", {})["stats_by_building"] = stats_dict.copy()
+        mem_char["buildingUpgrade"] = char["buildingUpgrade"].copy()
+
+    # --- Notify client (0xD8) ---
+    try:
+        bb = BitBuffer()
+        bb.write_method_6(building_id, 5)   # class_9.const_129
+        bb.write_method_6(new_rank, 5)      # class_9.const_28
+        bb.write_method_15(True)            # complete flag
+        payload = bb.to_bytes()
+        session.conn.sendall(struct.pack(">HH", 0xD8, len(payload)) + payload)
+        print(f"[{session.addr}] [0xDC] completed upgrade ID={building_id}, rank={new_rank}")
+    except Exception as e:
+        print(f"[{session.addr}] [0xDC] failed to send 0xD8: {e}")
+
+
+
+
+def handle_cancel_upgrade(session, data):
+    """
+    Handle 0xDB: client canceled an ongoing building upgrade.
+    Just clears buildingUpgrade; scheduled task will auto-skip.
+    """
+    char = next((c for c in session.char_list
+                 if c.get("name") == session.current_character), None)
+    if not char:
+        return
+
+    bu = char.get("buildingUpgrade", {})
+    building_id = bu.get("buildingID", 0)
+
+    # Reset upgrade state (cancel)
+    char["buildingUpgrade"] = {
+        "buildingID": 0,
+        "rank": 0,
+        "ReadyTime": 0,
+        "done": False,
+    }
+    save_characters(session.user_id, session.char_list)
+
+    print(f"[{session.addr}] [0xDB] building upgrade canceled for buildingID={building_id}")
+
+    mem = next((c for c in session.char_list if c.get("name") == session.current_character), None)
+    if mem:
+        mem["buildingUpgrade"] = char["buildingUpgrade"].copy()
+
+    # Tell client cancel succeeded (0xE3)
+    try:
+        bb = BitBuffer()
+        bb.write_method_6(building_id, 5)
+        payload = bb.to_bytes()
+        session.conn.sendall(struct.pack(">HH", 0xE3, len(payload)) + payload)
+        print(f"[{session.addr}] Sent 0xE3 cancel-ack for buildingID={building_id}")
+    except Exception as e:
+        print(f"[{session.addr}] [0xDB] failed to send 0xE3: {e}")
+
+
+def handle_building_claim(session, data):
+    """
+    Handle 0xD9: client acknowledged a completed building upgrade.
+    Usually sent after 0xD8 completion has been processed.
+    """
+    char = next((c for c in session.char_list
+                 if c.get("name") == session.current_character), None)
+    if not char:
+        print(f"[{session.addr}] [0xD9] no character found")
+        return
+
+    bu = char.get("buildingUpgrade", {})
+    building_id = bu.get("buildingID", 0)
+    rank        = bu.get("rank", 0)
+
+    # Clear upgrade state just in case it wasn’t cleared already
+    char["buildingUpgrade"] = {
+        "buildingID": 0,
+        "rank": 0,
+        "ReadyTime": 0,
+        "done": False,
+    }
+    save_characters(session.user_id, session.char_list)
+
+    # Mirror to in-memory session
+    mem = next((c for c in session.char_list
+                if c.get("name") == session.current_character), None)
+    if mem:
+        mem["buildingUpgrade"] = char["buildingUpgrade"].copy()
+
+    print(f"[{session.addr}] [0xD9] building upgrade claim ack "
+          f"(buildingID={building_id}, rank={rank})")
 
 
 
 def handle_train_talent_point(session, data):
-    """
-    Handle 0xD4: client started talent‐point research.
-    Payload = [ header(4) | 2‐bit classIndex | 1‐bit isInstant ]
-    """
     payload = data[4:]
     br = BitReader(payload, debug=True)
 
-    # 1) Read master‐class index (2 bits) and instant flag (1 bit)
     try:
         class_index = br.read_method_20(2)
-        is_instant  = bool(br.read_method_15())
+        # client doesn’t actually send an instant flag — discard
+        br.read_method_15()
     except Exception as e:
         print(f"[{session.addr}] [PKT0xD4] parse error: {e}")
         return
 
-    print(f"[{session.addr}] [PKT0xD4] Research request: classIndex={class_index}, isInstant={is_instant}")
-
-    # 2) Lookup character
-    char = next((c for c in session.char_list
-                 if c.get("name") == session.current_character), None)
+    char = next((c for c in session.char_list if c["name"] == session.current_character), None)
     if not char:
-        print(f"[{session.addr}] [PKT0xD4] no such character")
         return
 
-    # 3) Determine cost & duration
-    #    class_index+1 because arrays are 1‐based in client
-    idx = class_index + 1
-    duration = class_66.RESEARCH_DURATIONS [idx]
-    cost     = class_66.RESEARCH_COSTS [idx]
+    pts = char.setdefault("talentPoints", {})
+    current_points = pts.get(str(class_index), 0)
 
-    # 4) Deduct gold if not instant
-    if not is_instant:
-        if char.get("gold", 0) < cost:
-            print(f"[{session.addr}] [PKT0xD4] insufficient gold ({char.get('gold')} < {cost})")
-            # Optionally send popup here
-            return
-        char["gold"] -= cost
+    # Duration and costs
+    duration_idx = current_points + 1
+    duration = class_66.RESEARCH_DURATIONS[duration_idx]
+    gold_cost = class_66.RESEARCH_COSTS[duration_idx]
+    idol_cost = class_66.IDOL_COST[duration_idx]
 
-    # 5) Compute ready timestamp
     now = int(time.time())
-    ready_ts = now if is_instant else now + duration
 
-    # 6) Store pending talent research
-    char["talentResearch"] = {
-        "classIndex": class_index,
-        "ReadyTime":  ready_ts,
-        "done":       False,
-        "isInstant":  is_instant
-    }
-    save_characters(session.user_id, session.char_list)
-    print(f"[{session.addr}] Talent research stored → ReadyTime={ready_ts}")
+    if char.get("gold", 0) >= gold_cost:
+        # Gold path = timed research
+        char["gold"] -= gold_cost
+        ready_ts = now + duration
+        char["talentResearch"] = {
+            "classIndex": class_index,
+            "ReadyTime": ready_ts,
+            "done": False
+        }
+        print(f"[{session.addr}] Deducted {gold_cost} gold for research → ready in {duration}s")
+        save_characters(session.user_id, session.char_list)
+        schedule_Talent_point_research(session.user_id, session.current_character, ready_ts)
 
-    # 7) Schedule or immediate callback
-    if is_instant:
-        _on_talent_done_for(session.user_id, session.current_character)
     else:
-        # use the correctly named helper
-        schedule_Talent_point_research(
-            session.user_id,
-            session.current_character,
-            ready_ts
-        )
+        # Idol path = instant research
+        if char.get("mammothIdols", 0) < idol_cost:
+            print(f"[{session.addr}] Insufficient idols: {char.get('mammothIdols')} < {idol_cost}")
+            return
+        char["mammothIdols"] -= idol_cost
+        char["talentResearch"] = {
+            "classIndex": class_index,
+            "ReadyTime": now,  # instant
+            "done": False
+        }
+        print(f"[{session.addr}] Deducted {idol_cost} idols for instant research")
+        save_characters(session.user_id, session.char_list)
+        send_premium_purchase(session, "TalentResearch", idol_cost)
+        _on_talent_done_for(session.user_id, session.current_character)
+
+
 
 def handle_talent_speedup(session, data):
     """
-    Handle 0xE0: client clicked Speed‑up on talent research.
-    Payload: [ header(4) | method_9(idolCost) ]
+    Handle 0xE0: client clicked Speed-up on talent research.
+    Client sends the idol cost (0 if free).
     """
-    # 1) Parse cost
+    # 1) Parse idol cost
     payload = data[4:]
     br = BitReader(payload, debug=True)
     try:
@@ -1761,122 +1829,93 @@ def handle_talent_speedup(session, data):
         print(f"[{session.addr}] [0xE0] parse error: {e}")
         return
 
-    print(f"[{session.addr}] [0xE0] Talent speed‑up requested: cost={idol_cost}")
+    print(f"[{session.addr}] [0xE0] Talent speed-up requested: cost={idol_cost}")
 
-    # 2) Locate the character
-    char = next((c for c in session.char_list
-                 if c.get("name") == session.current_character), None)
+    # 2) Locate character
+    char = next((c for c in session.char_list if c["name"] == session.current_character), None)
     if not char:
         print(f"[{session.addr}] [0xE0] no character found")
         return
 
-    # 3) Deduct idols
-    curr_idols = char.get("mammothIdols", 0)
-    if curr_idols < idol_cost:
-        print(f"[{session.addr}] [0xE0] insufficient idols ({curr_idols} < {idol_cost})")
-        return
-    char["mammothIdols"] = curr_idols - idol_cost
-
-    # 4) Grab pending research
     tr = char.get("talentResearch", {})
     class_idx = tr.get("classIndex")
-    if class_idx is None or tr.get("done", False):
-        print(f"[{session.addr}] [0xE0] nothing to speed‑up")
-        save_characters(session.user_id, session.char_list)
-        return
 
-    # 5) Cancel scheduler if stored
+    # 3) Deduct idols if cost > 0
+    if idol_cost > 0:
+        char["mammothIdols"] = char.get("mammothIdols", 0) - idol_cost
+        send_premium_purchase(session, "TalentSpeedup", idol_cost)
+        print(f"[{session.addr}] [0xE0] Deducted {idol_cost} idols")
+
+    # 4) Cancel scheduler if one exists
     sched_id = tr.pop("schedule_id", None)
-    if sched_id is not None:
+    if sched_id:
         try:
             scheduler.cancel(sched_id)
-            print(f"[{session.addr}] Canceled talent schedule id={sched_id}")
+            print(f"[{session.addr}] canceled scheduled research id={sched_id}")
         except Exception:
             pass
 
-    # 6) Reset research timer so client will send 0xD6 claim
+    # 5) Mark research complete immediately
     tr["ReadyTime"] = 0
-    tr["isInstant"] = True  # mark as instant
+    tr["done"] = True
+    char["talentResearch"] = tr
 
-    # 7) Persist & mirror updated data
+    # 6) Persist & mirror in memory
     save_characters(session.user_id, session.char_list)
-    mem = next((c for c in session.char_list
-                if c.get("name") == session.current_character), None)
+    mem = next((c for c in session.char_list if c.get("name") == session.current_character), None)
     if mem:
         mem["mammothIdols"] = char["mammothIdols"]
         mem["talentResearch"] = tr.copy()
 
-    # 8) Send the 0xD5 “complete” notification to trigger client claim
+    # 7) Send the 0xD5 “complete” notification
     try:
         bb = BitBuffer()
-        # format: 2-bit class index, 1-bit flag (ignored by client)
-        bb.write_method_6(class_idx, class_66.const_571)
-        bb.write_method_6(1, 1)
+        bb.write_method_6(class_idx, class_66.const_571)  # classIndex
+        bb.write_method_6(1, 1)                           # status=complete
         payload = bb.to_bytes()
         session.conn.sendall(struct.pack(">HH", 0xD5, len(payload)) + payload)
-        print(f"[{session.addr}] [0xE0] sent 0xD5 to complete talent research")
+        print(f"[{session.addr}] [0xE0] sent 0xD5 to mark research complete")
     except Exception as e:
         print(f"[{session.addr}] [0xE0] failed to send 0xD5: {e}")
+
+
 
 
 def handle_talent_claim(session, data):
     """
     Handle 0xD6: client claiming a completed talent research.
-    Payload is usually empty (client writes no bits), so we ignore status.
+    Client sends this with an empty payload after upgrading is done.
+    Server should persist the talent point and clear talentResearch.
     """
-    # Try to read classIndex, but fall back if there's nothing to read
-    payload = data[4:]
-    br = BitReader(payload, debug=True)
-    try:
-        class_idx = br.read_method_20(class_66.const_571)
-    except Exception:
-        # No bits in payload: grab from pending research
-        char = next((c for c in session.char_list
-                     if c.get("name") == session.current_character), None)
-        if not char:
-            return
-        tr = char.get("talentResearch", {})
-        class_idx = tr.get("classIndex")
-        if class_idx is None:
-            return
-
-    print(f"[{session.addr}] [0xD6] Talent claim for classIndex={class_idx}")
-
-    # Lookup the character
-    char = next((c for c in session.char_list
-                 if c.get("name") == session.current_character), None)
+    char = next((c for c in session.char_list if c.get("name") == session.current_character), None)
     if not char:
         print(f"[{session.addr}] [0xD6] no character found")
         return
 
-    # Award the point if it's still pending
     tr = char.get("talentResearch", {})
-    # Only award if it's not already done
-    if not tr.get("done", False):
-        pts = char.setdefault("talentPoints", {})
-        pts[str(class_idx)] = pts.get(str(class_idx), 0) + 1
+    class_idx = tr.get("classIndex")
 
-        # Mark the research as done & clear it
-        char["talentResearch"] = {
-            "classIndex": None,
-            "ReadyTime":  0,
-            "done":       True,
-            "isInstant":  False
-        }
+    # Award the point (server-side persistence)
+    pts = char.setdefault("talentPoints", {})
+    pts[str(class_idx)] = pts.get(str(class_idx), 0) + 1
 
-        # Persist
-        save_characters(session.user_id, session.char_list)
+    # Clear research state
+    char["talentResearch"] = {
+        "classIndex": None,
+        "ReadyTime": 0,
+        "done": False,
+    }
 
-        # Mirror in-memory
-        mem = next((c for c in session.char_list
-                    if c.get("name") == session.current_character), None)
-        if mem:
-            mem.setdefault("talentPoints", {})[str(class_idx)] = pts[str(class_idx)]
-            mem["talentResearch"] = char["talentResearch"].copy()
+    # Persist save
+    save_characters(session.user_id, session.char_list)
 
-        print(f"[{session.addr}] [0xD6] Awarded talent point for classIndex={class_idx}")
-    else:
-        print(f"[{session.addr}] [0xD6] nothing to claim, already done")
+    # Mirror to in-memory session
+    mem_char = next((c for c in session.char_list if c.get("name") == session.current_character), None)
+    if mem_char:
+        mem_char.setdefault("talentPoints", {})[str(class_idx)] = pts[str(class_idx)]
+        mem_char["talentResearch"] = char["talentResearch"].copy()
+
+    print(f"[{session.addr}] [0xD6] Awarded talent point for classIndex={class_idx}")
 
 
 
@@ -1991,7 +2030,7 @@ def send_npc_dialog(session, npc_id, text):
     session.conn.sendall(packet)
     print(f"[DEBUG] Sent NPC dialog: {text}")
 
-# this is required for every time MamothIdols Are used to make a purchase
+# this is required for every time MamothIdols Are used to make a purchase to update the current amount of Idols in the client
 def send_premium_purchase(session, item_name: str, cost: int):
     bb = BitBuffer()
     bb.write_method_13(item_name)  # matches param1.method_13() in client
@@ -2865,6 +2904,8 @@ def handle_linkupdater(session, data, all_sessions):
     except Exception as e:
         print(f"[{session.addr}] [PKTA2] Error parsing link-sync: {e}")
 
+
+
 def handle_entity_full_update(session, data, all_sessions):
     """
     Handle a full entity spawn/update (packet type 0x08) from a client.
@@ -2972,9 +3013,9 @@ def handle_entity_full_update(session, data, all_sessions):
             for log_line in br.get_debug_log():
                 print(log_line)
 
+
 def handle_entity_incremental_update(session, data, all_sessions):
     # Only handle 0x07
-
 
     payload = data[4:]
     br = BitReader(payload, debug=True)
@@ -2988,12 +3029,12 @@ def handle_entity_incremental_update(session, data, all_sessions):
             print(f"[{session.addr}] [PKT07] Unknown entity {entity_id} movement dropped")
             return
 
-
         # 2) Read deltas
-        delta_x  = br.read_method_24()
-        delta_y  = br.read_method_24()
-        delta_vx = br.read_method_24()
-        #print(f"delta_x:{delta_x} delta_y : {delta_y} : delta_vx : {delta_vx} ")
+        delta_x = br.read_method_45()
+        delta_y = br.read_method_45()
+        delta_vx = br.read_method_45()
+
+        print(f"delta_x:{delta_x} delta_y : {delta_y} : delta_vx : {delta_vx} ")
         # 3) Read state & flags
         STATE_BITS = Entity.const_316
         ent_state = br.read_method_6(STATE_BITS)
@@ -3071,7 +3112,6 @@ def handle_start_skit(session, data, all_sessions):
     """
     payload = data[4:]  # Strip 4-byte header
     br = BitReader(payload, debug=True)
-
     try:
         entity_id = br.read_method_9()
         flag = bool(br.read_method_15())
@@ -3137,3 +3177,126 @@ def handle_hotbar_packet(session, raw_data):
     session.player_data["characters"] = session.char_list
     save_characters(session.user_id, session.char_list)
     print(f"[Save] activeAbilities for {session.current_character} = {active} saved (user_id={session.user_id})")
+
+
+
+def handle_respec_talent_tree(session, data):
+    """
+    Handles client request 0xD2 to reset the talent tree using a Respec Stone.
+    Deducts one Respec Stone (charmID 91) from the character's inventory.
+    """
+    try:
+        # Find active character
+        char = next((c for c in session.char_list if c["name"] == session.current_character), None)
+        if not char:
+            return  # no active character
+
+        # Deduct one Respec Stone (charmID 91)
+        charms = char.setdefault("charms", [])
+        for entry in charms:
+            if entry.get("charmID") == 91:
+                if entry.get("count", 0) > 0:
+                    entry["count"] -= 1
+                    if entry["count"] <= 0:
+                        charms.remove(entry)
+                break
+        else:
+            # Optional: No stones available, could log or return
+            print(f"[{session.addr}] No Respec Stones available for {char['name']}")
+            return
+
+        # Reset the talent tree
+        mc = str(char.get("MasterClass", 1))
+        talent_tree = char.setdefault("TalentTree", {}).setdefault(mc, {})
+
+        # Reset all 27 slots
+        talent_tree["nodes"] = [
+            {"nodeID": index_to_node_id(i), "points": 0, "filled": False}
+            for i in range(27)
+        ]
+
+        # Persist the character data after modification
+        save_characters(session.user_id, session.char_list)
+        print(f"[{session.addr}] Talent tree reset and 1 Respec Stone used for {char['name']}")
+
+    except Exception as e:
+        print(f"[{session.addr}] [PKT_RESPEC] Error: {e}")
+
+
+
+def allocate_talent_tree_points(session, data):
+    payload = data[4:]
+    br = BitReader(payload, debug=True)
+
+    try:
+        # 1) Locate active character & TalentTree
+        char = next((c for c in session.char_list if c["name"] == session.current_character), None)
+        if not char:
+            print(f"[{session.addr}] [PKT_TALENT_UPGRADE] No active character found")
+            return
+
+        master_class = str(char.get("MasterClass", 1))
+        talent_tree = char.setdefault("TalentTree", {}).setdefault(master_class, {})
+
+        # Initialize a 27-slot array to emulate client var_58
+        slots = [None] * 27
+
+        # 2) Parse full tree (27 slots)
+        for i in range(27):
+            has_node = br.read_method_15()
+            node_id = index_to_node_id(i)
+
+            if has_node:
+                # Node ID from packet
+                node_id_from_packet = br.read_method_6(class_118.const_127)
+                points_spent = br.read_method_6(method_277(i)) + 1  # +1 for node itself
+                slots[i] = {
+                    "nodeID": node_id_from_packet,
+                    "points": points_spent,
+                    "filled": True
+                }
+            else:
+                # Empty slot
+                slots[i] = {
+                    "nodeID": node_id,
+                    "points": 0,
+                    "filled": False
+                }
+
+        # 3) Parse incremental actions
+        actions = []
+        while br.read_method_15():
+            is_signet = br.read_method_15()
+            if is_signet:
+                node_index = br.read_method_6(class_118.const_127)
+                signet_group = br.read_method_6(class_118.const_127)
+                signet_index = br.read_method_6(class_118.const_127) - 1
+                actions.append({
+                    "action": "signet",
+                    "nodeIndex": node_index,
+                    "signetGroup": signet_group,
+                    "signetIndex": signet_index
+                })
+            else:
+                node_index = br.read_method_6(class_118.const_127)
+                actions.append({
+                    "action": "upgrade",
+                    "nodeIndex": node_index
+                })
+
+        # 4) Save back to TalentTree in array order
+        talent_tree["nodes"] = slots
+
+        # 5) Persist to player data and database
+        session.player_data["characters"] = session.char_list
+        save_characters(session.user_id, session.char_list)
+
+        print(f"[{session.addr}] [PKT_TALENT_UPGRADE] Updated TalentTree[{master_class}]")
+        for idx, slot in enumerate(slots):
+            print(f"  Slot {idx + 1}: {slot}")
+        print(f"  → Actions: {actions}")
+
+    except Exception as e:
+        print(f"[{session.addr}] [PKT_TALENT_UPGRADE] Error parsing: {e}")
+        for line in br.get_debug_log():
+            print(line)
